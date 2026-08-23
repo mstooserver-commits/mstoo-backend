@@ -1,0 +1,13 @@
+{
+    "name": "ProMemberManagement",
+    "alias": "promembermanagement",
+    "description": "MSTOO Pro member management",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\ProMemberManagement\\Providers\\ProMemberManagementServiceProvider"
+    ],
+    "aliases": {},
+    "files": [],
+    "requires": []
+}
