@@ -21,6 +21,21 @@ class ExampleTest extends TestCase
         $response->assertSee('MSTOO', false);
     }
 
+    public function test_admin_login_assets_use_http_when_the_request_is_http()
+    {
+        config(['app.force_https' => true]);
+
+        $response = $this->get('/admin/auth/login');
+
+        $response->assertOk();
+        $html = $response->getContent();
+
+        $this->assertStringContainsString('/assets/admin-module/css/style.css', $html);
+        $this->assertStringContainsString('/assets/admin-module/css/material-icons.css', $html);
+        $this->assertStringNotContainsString('https://localhost/assets/admin-module/css/style.css', $html);
+        $this->assertStringNotContainsString('https://127.0.0.1/assets/admin-module/css/style.css', $html);
+    }
+
     public function test_public_cache_clear_routes_are_removed()
     {
         $this->get('/clear-cache')->assertNotFound();

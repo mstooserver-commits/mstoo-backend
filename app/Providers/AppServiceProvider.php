@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\UrlScheme;
 use App\Traits\ActivationClass;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\RedirectResponse;
@@ -35,15 +36,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(Request $request)
     {
         try {
-            $runningOnArtisanServe = PHP_SAPI === 'cli-server';
-
-            if (!$runningOnArtisanServe && (config('app.force_https', false) || env('FORCE_HTTPS', false))) {
-                URL::forceScheme('https');
+            if (UrlScheme::isHttpRuntime()) {
+                URL::forceScheme(UrlScheme::forRequest($request));
             }
 
-            if (!$runningOnArtisanServe && !app()->isLocal()) {
-                request()->server->set('HTTPS', 'on');
-            }
             Config::set('default_pagination', 25);
             Paginator::useBootstrap();
         } catch (\Exception $ex) {

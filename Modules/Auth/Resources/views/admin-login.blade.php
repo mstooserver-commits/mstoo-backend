@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="shortcut icon"
-          href="{{asset('storage/app/business')}}/{{(business_config('business_favicon', 'business_information'))->live_values ?? null}}"/>
+          href="{{asset('storage/app/public/business')}}/{{(business_config('business_favicon', 'business_information'))->live_values ?? null}}"/>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link
@@ -46,7 +46,10 @@
                                         @endif
                                         @if($loginLogo && $loginLogo->live_values)
                                             <div class="mb-3">
-                                                <img src="{{ asset('storage/app/business') }}/{{ $loginLogo->live_values }}" alt="MSTOO" style="max-height:42px;">
+                                                <img src="{{ asset('storage/app/public/business') }}/{{ $loginLogo->live_values }}"
+                                                     alt="MSTOO"
+                                                     style="max-height:42px;"
+                                                     onerror="this.src='{{ asset('assets/placeholder.png') }}'">
                                             </div>
                                         @endif
                                         <div class="mb-30">
