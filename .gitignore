@@ -22,3 +22,5 @@ storage/app/private/backups/*.sql.gz
 storage/app/private/backups/*.cnf
 .env
 node_modules
+installation/backup/public.zip
+installation/backup/public.zip
