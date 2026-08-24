@@ -191,7 +191,7 @@
                         <li>
                             <a href="{{route('admin.service.index')}}"
                                class="{{request()->is('admin/service/list')?'active-menu':''}}">
-                                {{translate('service_list')}}
+                                {{translate('posted_ads')}}
                             </a>
                         </li>
                         <li>

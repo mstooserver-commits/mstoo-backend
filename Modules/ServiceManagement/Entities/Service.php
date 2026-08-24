@@ -15,6 +15,7 @@ use Modules\CategoryManagement\Entities\Category;
 use Modules\PromotionManagement\Entities\DiscountType;
 use Modules\ReviewModule\Entities\Review;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\UserManagement\Entities\User;
 
 class Service extends Model
 {
@@ -132,6 +133,50 @@ class Service extends Model
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class);
+    }
+
+    public function poster(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'added_by');
+    }
+
+    public function posterName(): string
+    {
+        $poster = $this->poster;
+        if (!$poster) {
+            return '';
+        }
+
+        return trim(($poster->first_name ?? '') . ' ' . ($poster->last_name ?? ''));
+    }
+
+    public function adLocation(): string
+    {
+        if (!empty($this->location)) {
+            return (string) $this->location;
+        }
+
+        $address = $this->poster?->addresses?->first();
+        if (!$address) {
+            return '';
+        }
+
+        return collect([$address->address, $address->city, $address->country])->filter()->implode(', ');
+    }
+
+    public function posterListRow(): array
+    {
+        $name = $this->posterName();
+
+        return [
+            'Name' => $name !== '' ? $name : '-',
+            'Location' => $this->adLocation() !== '' ? $this->adLocation() : '-',
+            'Ad Name' => $this->name ?: '-',
+            'Posted By' => $name !== '' ? $name : (optional($this->poster)->email ?? '-'),
+            'Email' => optional($this->poster)->email ?? '-',
+            'Phone' => optional($this->poster)->phone ?? '-',
+            'Date Posted' => optional($this->created_at)->format('Y-m-d H:i'),
+        ];
     }
 
     protected static function booted()

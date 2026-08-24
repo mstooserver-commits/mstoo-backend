@@ -83,8 +83,7 @@ class LoginController extends Controller
 
             if ($hasActiveRole) {
                 mstoo_clear_login_failures($user);
-                $user->last_login_at = now();
-                $user->save();
+                $user->recordLastLogin();
                 auth()->login($user);
                 $request->session()->regenerate();
                 return redirect()->route('admin.dashboard');

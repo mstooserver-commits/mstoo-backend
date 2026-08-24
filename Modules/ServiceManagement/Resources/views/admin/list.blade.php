@@ -1,6 +1,6 @@
 @extends('adminmodule::layouts.master')
 
-@section('title',translate('service_list'))
+@section('title',translate('posted_ads'))
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.css"/>
@@ -14,8 +14,15 @@
                 <div class="col-12">
                     <div
                         class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
-                        <h2 class="page-title">{{translate('service_list')}}</h2>
                         <div>
+                            <h2 class="page-title">{{translate('posted_ads')}}</h2>
+                            <p class="text-muted mb-0">{{translate('list_of_users_who_posted_ads')}}</p>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{{route('admin.service.download', request()->query())}}" class="btn btn--secondary">
+                                <span class="material-icons">file_download</span>
+                                {{translate('download_excel')}}
+                            </a>
                             <a href="{{route('admin.service.create')}}" class="btn btn--primary">
                                 <span class="material-icons">add</span>
                                 {{translate('add_service')}}
@@ -57,17 +64,17 @@
                             <div class="card">
                                 <div class="card-body">
                                     <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
-                                        <form action="{{url()->current()}}?status={{$status}}"
+                                        <form action="{{url()->current()}}"
                                               class="search-form search-form_style-two"
-                                              method="POST">
-                                            @csrf
+                                              method="GET">
+                                            <input type="hidden" name="status" value="{{$status}}">
                                             <div class="input-group search-form__input_group">
                                             <span class="search-form__icon">
                                                 <span class="material-icons">search</span>
                                             </span>
                                                 <input type="search" class="theme-input-style search-form__input"
                                                        value="{{$search}}" name="search"
-                                                       placeholder="{{translate('search_here')}}">
+                                                       placeholder="{{translate('search_by_name_ad_or_location')}}">
                                             </div>
                                             <button type="submit"
                                                     class="btn btn--primary">{{translate('search')}}</button>
@@ -96,10 +103,10 @@
                                             <thead>
                                             <tr>
                                                 <th>{{translate('SL')}}</th>
-                                                <th>{{translate('name')}}</th>
-                                                <th>{{translate('category')}}</th>
-                                                <!-- <th>{{translate('zones')}}</th> -->
-                                                <!-- <th>{{translate('Minimum Bidding Price')}}</th> -->
+                                                <th>{{translate('ad_name')}}</th>
+                                                <th>{{translate('posted_by')}}</th>
+                                                <th>{{translate('location')}}</th>
+                                                <th>{{translate('date_posted')}}</th>
                                                 <th>{{translate('status')}}</th>
                                                 <th>{{translate('action')}}</th>
                                             </tr>
@@ -107,29 +114,21 @@
                                             <tbody>
                                             @forelse($services as $key=>$service)
                                                 <tr>
-                                                    <td>{{$services->firstitem()+$key}}</td>
+                                                    <td>{{$services->firstItem()+$key}}</td>
+                                                    <td>{{$service->name}}</td>
                                                     <td>
-                                                        <!-- <a href="{{route('admin.service.detail',[$service->id])}}"> -->
-                                                            {{$service->name}}
-                                                        <!-- </a> -->
-                                                    </td>
-                                                    <td>
-                                                        {{$service->category->name ?? translate('Unavailable') }}
-                                                    </td>
-                                                    <!-- <td>
-                                                        @if($service->category)
-                                                            {{implode(', ',$service->category->zonesBasicInfo->pluck('name')->toArray())}}
+                                                        @if($service->poster)
+                                                            <div class="fw-medium">{{$service->posterName() ?: '-'}}</div>
+                                                            <div class="fs-12 text-muted">{{$service->poster->email}}</div>
+                                                            @if($service->poster->phone)
+                                                                <div class="fs-12">{{$service->poster->phone}}</div>
+                                                            @endif
+                                                        @else
+                                                            <span class="text-muted">{{translate('not_available')}}</span>
                                                         @endif
-                                                    </td> -->
-                                                    <!-- <td>
-                                                        {{with_currency_symbol($service->min_bidding_price)}}
-
-                                                        @if($service->min_bidding_price == 0)
-                                                            <i class="text-warning material-icons px-1" data-bs-toggle="tooltip" data-bs-placement="top"
-                                                               title="{{translate('Update the minimum bidding price')}}"
-                                                            >warning</i>
-                                                        @endif
-                                                    </td> -->
+                                                    </td>
+                                                    <td>{{$service->adLocation() ?: translate('not_available')}}</td>
+                                                    <td>{{optional($service->created_at)->format('d M Y, h:i A')}}</td>
                                                     <td>
                                                         <label class="switcher" data-bs-toggle="modal"
                                                                data-bs-target="#deactivateAlertModal">
@@ -164,7 +163,7 @@
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td colspan="5">
+                                                    <td colspan="7">
                                                         @include('adminmodule::layouts.partials._empty', ['icon' => 'design_services', 'title' => translate('No_data_found')])
                                                     </td>
                                                 </tr>

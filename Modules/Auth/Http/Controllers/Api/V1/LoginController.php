@@ -61,8 +61,7 @@ class LoginController extends Controller
         if (isset($user) && Hash::check($request['password'], $user['password'])) {
             if ($user->is_active && ($user->user_type == 'super-admin' || ($user->roles->count() > 0 && $user->roles[0]->is_active))) {
                 mstoo_clear_login_failures($user);
-                $user->last_login_at = now();
-                $user->save();
+                $user->recordLastLogin();
                 return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, ADMIN_PANEL_ACCESS)), 200);
             }
             return response()->json(response_formatter(ACCOUNT_DISABLED), 401);
@@ -441,8 +440,7 @@ class LoginController extends Controller
      */
     protected function authenticate($user, $access_type)
     {
-        $user->last_login_at = now();
-        $user->save();
+        $user->recordLastLogin();
 
         return ['token' => $user->createToken($access_type)->accessToken, 'is_active' => $user['is_active']];
     }

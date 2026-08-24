@@ -67,28 +67,9 @@ class ServiceController extends Controller
         $status = $request->has('status') ? $request['status'] : 'all';
         $query_param = ['search' => $search, 'status' => $status];
 
-        $services = $this->service->with(['category.zonesBasicInfo'])->latest()
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                foreach ($keys as $key) {
-                    $query->orWhere('name', 'LIKE', '%' . $key . '%');
-                }
-            })
-            ->when($request->has('category_id'), function ($query) use ($request) {
-                return $query->where('category_id', $request->category_id);
-            })->when($request->has('sub_category_id'), function ($query) use ($request) {
-                return $query->where('sub_category_id', $request->sub_category_id);
-            })->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
-                if ($request['status'] == 'active') {
-                    return $query->where(['is_active' => 1]);
-                } else {
-                    return $query->where(['is_active' => 0]);
-                }
-            })->when($request->has('zone_id'), function ($query) use ($request) {
-                return $query->whereHas('category.zonesBasicInfo', function ($queryZone) use ($request) {
-                    $queryZone->where('zone_id', $request['zone_id']);
-                });
-            })->paginate(pagination_limit())->appends($query_param);
+        $services = $this->postedAdsQuery($request)
+            ->paginate(pagination_limit())
+            ->appends($query_param);
 
         return view('servicemanagement::admin.list', compact('services', 'search', 'status'));
     }
@@ -427,23 +408,42 @@ class ServiceController extends Controller
      */
     public function download(Request $request): string|StreamedResponse
     {
-        $items = $this->service->with(['category.zonesBasicInfo'])->latest()
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                foreach ($keys as $key) {
-                    $query->orWhere('name', 'LIKE', '%' . $key . '%');
-                }
+        $items = $this->postedAdsQuery($request)->get();
+
+        return (new FastExcel($items))->download(time() . '-posted-ads.xlsx', function ($service) {
+            return $service->posterListRow();
+        });
+    }
+
+    private function postedAdsQuery(Request $request)
+    {
+        return $this->service->with(['category', 'poster.addresses'])->latest()
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $term = $request['search'];
+                $query->where(function ($inner) use ($term) {
+                    $inner->where('name', 'LIKE', '%' . $term . '%')
+                        ->orWhere('location', 'LIKE', '%' . $term . '%')
+                        ->orWhereHas('poster', function ($poster) use ($term) {
+                            $poster->where('first_name', 'LIKE', '%' . $term . '%')
+                                ->orWhere('last_name', 'LIKE', '%' . $term . '%')
+                                ->orWhere('email', 'LIKE', '%' . $term . '%')
+                                ->orWhere('phone', 'LIKE', '%' . $term . '%');
+                        });
+                });
             })
-            ->when($request->has('category_id'), function ($query) use ($request) {
+            ->when($request->filled('category_id'), function ($query) use ($request) {
                 return $query->where('category_id', $request->category_id);
-            })->when($request->has('sub_category_id'), function ($query) use ($request) {
+            })
+            ->when($request->filled('sub_category_id'), function ($query) use ($request) {
                 return $query->where('sub_category_id', $request->sub_category_id);
-            })->when($request->has('zone_id'), function ($query) use ($request) {
+            })
+            ->when($request->filled('status') && $request['status'] != 'all', function ($query) use ($request) {
+                return $query->where('is_active', $request['status'] == 'active' ? 1 : 0);
+            })
+            ->when($request->filled('zone_id'), function ($query) use ($request) {
                 return $query->whereHas('category.zonesBasicInfo', function ($queryZone) use ($request) {
                     $queryZone->where('zone_id', $request['zone_id']);
                 });
-            })->latest()->get();
-
-        return (new FastExcel($items))->download(time() . '-file.xlsx');
+            });
     }
 }

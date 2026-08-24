@@ -2403,4 +2403,13 @@
   'created_by' => 'Created by',
   'system' => 'System',
   'Manage Database Backups' => 'Manage Database Backups',
+  'posted_ads' => 'Posted ads',
+  'list_of_users_who_posted_ads' => 'List of users who posted ads with name, location and date',
+  'download_excel' => 'Download Excel',
+  'ad_name' => 'Ad name',
+  'posted_by' => 'Posted by',
+  'location' => 'Location',
+  'date_posted' => 'Date posted',
+  'search_by_name_ad_or_location' => 'Search by name, ad or location',
+  'not_available' => 'Not available',
 );

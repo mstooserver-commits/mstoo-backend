@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Passport\HasApiTokens;
 use Modules\BookingModule\Entities\Booking;
 use Modules\CartModule\Entities\AddedToCart;
@@ -125,6 +126,16 @@ class User extends Authenticatable
     public function searched_data(): HasMany
     {
         return $this->hasMany(SearchedData::class, 'user_id', 'id');
+    }
+
+    public function recordLastLogin(): void
+    {
+        if (!Schema::hasColumn($this->getTable(), 'last_login_at')) {
+            return;
+        }
+
+        $this->last_login_at = now();
+        $this->save();
     }
 
     /*public function getIdentificationImageAttribute(string $value): mixed
