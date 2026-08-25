@@ -21,7 +21,11 @@ class ConfigController extends Controller
 
     function __construct()
     {
-        $this->google_map = business_config('google_map', 'third_party');
+        try {
+            $this->google_map = business_config('google_map', 'third_party');
+        } catch (\Throwable $exception) {
+            $this->google_map = null;
+        }
         $this->google_map_base_api = 'https://maps.googleapis.com/maps/api';
     }
 
@@ -71,11 +75,30 @@ class ConfigController extends Controller
             report($exception);
         }
 
-        $proMember = ['enabled' => 0];
+        $proMember = [
+            'enabled' => 0,
+            'purchase_enabled' => 0,
+            'is_pro_member' => 0,
+            'membership' => null,
+            'benefits' => [
+                'discount' => ['enabled' => 0, 'percent' => 0, 'max_amount' => 0, 'min_order' => 0],
+                'coupon' => ['enabled' => 0],
+                'service_fee' => ['enabled' => 0],
+            ],
+            'default_service_fee' => 0,
+            'currency_code' => 'INR',
+            'currency_symbol' => '₹',
+        ];
         try {
+            $userId = null;
+            try {
+                $userId = auth('api')->id();
+            } catch (\Throwable $exception) {
+                $userId = null;
+            }
             if (class_exists(\Modules\ProMemberManagement\Services\ProMemberService::class)) {
                 $proMember = app(\Modules\ProMemberManagement\Services\ProMemberService::class)
-                    ->publicConfig(auth('api')->id());
+                    ->publicConfig($userId !== null ? (string) $userId : null);
             }
         } catch (\Throwable $exception) {
             report($exception);
@@ -85,40 +108,70 @@ class ConfigController extends Controller
         if (is_string($minVersions)) {
             $minVersions = json_decode($minVersions);
         }
+        if (!is_object($minVersions) && !is_array($minVersions)) {
+            $minVersions = ['min_version_for_android' => '0', 'min_version_for_ios' => '0'];
+        }
+
+        $otpResend = (int) (settings_live('otp_resend_time', 'otp_login_setup', 60));
+        if ($otpResend < 30) {
+            $otpResend = 60;
+        }
+
+        $lat = is_numeric($lat) ? (float) $lat : 0.0;
+        $lon = is_numeric($lon) ? (float) $lon : 0.0;
+        $userLocation = null;
+        if (is_object($location)) {
+            $userLocation = [
+                'ip' => (string) ($location->ip ?? ''),
+                'countryName' => (string) ($location->countryName ?? ''),
+                'countryCode' => (string) ($location->countryCode ?? ''),
+                'regionCode' => (string) ($location->regionCode ?? ''),
+                'regionName' => (string) ($location->regionName ?? ''),
+                'cityName' => (string) ($location->cityName ?? ''),
+                'zipCode' => (string) ($location->zipCode ?? ''),
+                'latitude' => (float) ($location->latitude ?? 0),
+                'longitude' => (float) ($location->longitude ?? 0),
+            ];
+        }
+
+        $appLanguages = customer_app_languages();
 
         return response()->json(response_formatter(DEFAULT_200, [
             'business_name' => settings_live('business_name', 'business_information'),
             'logo' => settings_live('business_logo', 'business_information'),
             'country_code' => settings_live('country_code', 'business_information'),
             'business_address' => settings_live('business_address', 'business_information'),
-            'business_phone' => settings_live('business_phone', 'business_information'),
+            'business_phone' => settings_live('business_phone', 'business_information') ?: '',
             'business_email' => settings_live('business_email', 'business_information'),
             'base_url' => 'https://api.mstoo.co.in/api/v1/',
             'currency_decimal_point' => settings_live('currency_decimal_point', 'business_information'),
             'currency_code' => currency_code(),
+            'currency_symbol' => currency_symbol(),
             'currency_symbol_position' => settings_live('currency_symbol_position', 'business_information'),
             'about_us' => route('about-us'),
             'privacy_policy' => route('privacy-policy'),
             'terms_and_conditions' => ($terms?->is_active ?? 0) ? route('terms-and-conditions') : '',
             'refund_policy' => ($refund?->is_active ?? 0) ? route('refund-policy') : '',
             'cancellation_policy' => ($cancel?->is_active ?? 0) ? route('cancellation-policy') : '',
+            'return_policy' => '',
             'default_location' => ['default' => [
                 'lat' => $lat,
                 'lon' => $lon,
             ]],
-            'user_location_info' => $location ?: null,
+            'user_location_info' => $userLocation,
             'app_url_android' => '',
             'app_url_ios' => '',
             'map_api_key' => $this->google_map,
             'image_base_url' => asset('storage/app/public'),
             'pagination_limit' => 20,
-            'languages' => LANGUAGES,
+            'language' => $appLanguages,
+            'languages' => $appLanguages,
             'currencies' => CURRENCIES,
             'countries' => COUNTRIES,
             'time_zones' => DateTimeZone::listIdentifiers(),
             'payment_gateways' => $paymentGateways,
             'footer_text' => settings_live('footer_text', 'business_information'),
-            'cookies_text' => settings_live('cookies_text', 'business_information'),
+            'cookies_text' => settings_live('cookies_text', 'business_information') ?: '',
             'admin_details' => User::select('id', 'first_name', 'last_name', 'profile_image')->where('user_type', ADMIN_USER_TYPES[0])->first(),
             'min_versions' => $minVersions,
             'app_url_playstore' => ($playstore?->is_active ?? 0) ? ($playstore->live_values ?? null) : null,
@@ -134,15 +187,15 @@ class ConfigController extends Controller
             'bidding_status' => (int) (settings_live('bidding_status', 'bidding_system', 0)),
             'phone_verification' => (int) (settings_live('phone_verification', 'service_setup', 0)),
             'email_verification' => (int) (settings_live('email_verification', 'service_setup', 0)),
-            'forget_password_verification_method' => settings_live('forget_password_verification_method', 'business_information'),
+            'forget_password_verification_method' => settings_live('forget_password_verification_method', 'business_information') ?: 'phone',
             'cash_after_service' => (int) (settings_live('cash_after_service', 'service_setup', 0)),
             'digital_payment' => (int) (settings_live('digital_payment', 'service_setup', 0)),
             'wallet_payment' => (int) (settings_live('wallet_payment', 'service_setup', 0)),
             'customer_self_registration' => (int) (settings_live('customer_self_registration', 'customer_config', 1)),
             'customer_can_cancel_booking' => (int) (settings_live('customer_can_cancel_booking', 'service_setup', 1)),
             'maintenance' => mstoo_under_maintenance() ? mstoo_maintenance_config() : ['status' => 0],
-            'social_media' => settings_live('social_media', 'landing_social_media'),
-            'otp_resend_time' => (int) (settings_live('otp_resend_time', 'otp_login_setup')),
+            'social_media' => customer_social_media(),
+            'otp_resend_time' => $otpResend,
             'default_commission' => settings_live('default_commission', 'business_information'),
             'blog_section_enabled' => blog_section_enabled() ? 1 : 0,
             'pro_member' => $proMember,
@@ -151,14 +204,26 @@ class ConfigController extends Controller
 
     public function pages(): JsonResponse
     {
-        return response()->json(response_formatter(DEFAULT_200, [
-            'about_us' => business_config('about_us', 'pages_setup'),
-            'terms_and_conditions' => business_config('terms_and_conditions', 'pages_setup'),
-            'refund_policy' => business_config('refund_policy', 'pages_setup'),
-            'return_policy' => business_config('return_policy', 'pages_setup'),
-            'cancellation_policy' => business_config('cancellation_policy', 'pages_setup'),
-            'privacy_policy' => business_config('privacy_policy', 'pages_setup'),
-        ]), 200);
+        $keys = [
+            'about_us',
+            'terms_and_conditions',
+            'refund_policy',
+            'return_policy',
+            'cancellation_policy',
+            'privacy_policy',
+        ];
+        $pages = [];
+        foreach ($keys as $key) {
+            $page = business_config($key, 'pages_setup');
+            $pages[$key] = $page ?: [
+                'key_name' => $key,
+                'live_values' => '',
+                'is_active' => 0,
+                'settings_type' => 'pages_setup',
+            ];
+        }
+
+        return response()->json(response_formatter(DEFAULT_200, $pages), 200);
     }
 
     public function get_zone(Request $request): JsonResponse
@@ -172,8 +237,21 @@ class ConfigController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $point = new Point($request->lat, $request->lng);
-        $zone = Zone::contains('coordinates', $point)->ofStatus(1)->latest()->first();
+        $zone = null;
+        try {
+            $lat = (float) $request->lat;
+            $lng = (float) $request->lng;
+            if ($lat != 0.0 || $lng != 0.0) {
+                $point = new Point($lat, $lng);
+                $zone = Zone::contains('coordinates', $point)->ofStatus(1)->latest()->first();
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        if (!$zone) {
+            $zone = fallback_customer_zone();
+        }
 
         if ($zone) {
             return response()->json(response_formatter(DEFAULT_200, $zone), 200);

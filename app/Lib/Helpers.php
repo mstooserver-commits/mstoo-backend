@@ -239,7 +239,7 @@ if (!function_exists('active_languages')) {
     function active_languages(): array
     {
         $config = business_config('language_code', 'business_information');
-        $codes = $config->live_values ?? ['en'];
+        $codes = (is_object($config) ? $config->live_values : null) ?? ['en'];
         if (!is_array($codes) || empty($codes)) {
             $codes = ['en'];
         }
@@ -345,6 +345,89 @@ if (!function_exists('mask_email')) {
         [$name, $domain] = explode('@', $email, 2);
         $visible = substr($name, 0, 1);
         return $visible . str_repeat('*', max(1, strlen($name) - 1)) . '@' . $domain;
+    }
+}
+
+if (!function_exists('customer_app_languages')) {
+    function customer_app_languages(): array
+    {
+        try {
+            $default = default_language_code();
+            $languages = [];
+            foreach (active_languages() as $language) {
+                $code = (string) ($language['code'] ?? '');
+                if ($code === '') {
+                    continue;
+                }
+                $languages[] = [
+                    'code' => $code,
+                    'name' => $language['name'] ?? strtoupper($code),
+                    'nativeName' => $language['nativeName'] ?? ($language['name'] ?? $code),
+                    'status' => 1,
+                    'default' => $code === $default,
+                    'direction' => !empty($language['rtl']) ? 'rtl' : 'ltr',
+                ];
+            }
+        } catch (\Throwable $exception) {
+            $languages = [];
+        }
+
+        if (!$languages) {
+            $languages[] = [
+                'code' => 'en',
+                'name' => 'English',
+                'nativeName' => 'English',
+                'status' => 1,
+                'default' => true,
+                'direction' => 'ltr',
+            ];
+        }
+
+        return $languages;
+    }
+}
+
+if (!function_exists('customer_social_media')) {
+    function customer_social_media(): array
+    {
+        try {
+            $row = \Modules\BusinessSettingsModule\Entities\BusinessSettings::query()
+                ->where('key_name', 'social_media')
+                ->first();
+            $values = $row->live_values ?? null;
+            if ($values === null) {
+                $values = settings_live('social_media', 'landing_social_media', []);
+            }
+            if (is_string($values)) {
+                $values = json_decode($values, true) ?: [];
+            }
+            if (!is_array($values)) {
+                return [];
+            }
+            if ($values && array_keys($values) !== range(0, count($values) - 1)) {
+                $values = array_values($values);
+            }
+
+            return array_values(array_filter($values, function ($item) {
+                return is_array($item);
+            }));
+        } catch (\Throwable $exception) {
+            return [];
+        }
+    }
+}
+
+if (!function_exists('fallback_customer_zone')) {
+    function fallback_customer_zone()
+    {
+        try {
+            return \Modules\ZoneManagement\Entities\Zone::ofStatus(1)
+                ->orderByRaw("CASE WHEN name = 'All' THEN 0 ELSE 1 END")
+                ->latest()
+                ->first();
+        } catch (\Throwable $exception) {
+            return null;
+        }
     }
 }
 

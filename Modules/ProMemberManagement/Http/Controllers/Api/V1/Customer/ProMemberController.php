@@ -13,19 +13,52 @@ use Modules\ProMemberManagement\Services\ProMemberService;
 
 class ProMemberController extends Controller
 {
-    public function __construct(private ProMemberService $service)
+    private function service(): ProMemberService
     {
+        return app(ProMemberService::class);
     }
 
     public function config(Request $request): JsonResponse
     {
-        $userId = $request->user('api')?->id ?? $request->user()?->id;
-        return response()->json(response_formatter(DEFAULT_200, $this->service->publicConfig($userId)), 200);
+        try {
+            $user = null;
+            try {
+                $user = $request->user('api');
+                if (!$user) {
+                    $user = $request->user();
+                }
+            } catch (\Throwable $exception) {
+                $user = null;
+            }
+            $userId = $user ? $user->id : null;
+
+            return response()->json(response_formatter(
+                DEFAULT_200,
+                $this->service()->publicConfig($userId !== null ? (string) $userId : null)
+            ), 200);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json(response_formatter(DEFAULT_200, [
+                'enabled' => 0,
+                'purchase_enabled' => 0,
+                'is_pro_member' => 0,
+                'membership' => null,
+                'benefits' => [
+                    'discount' => ['enabled' => 0, 'percent' => 0, 'max_amount' => 0, 'min_order' => 0],
+                    'coupon' => ['enabled' => 0],
+                    'service_fee' => ['enabled' => 0],
+                ],
+                'default_service_fee' => 0,
+                'currency_code' => 'INR',
+                'currency_symbol' => '₹',
+            ]), 200);
+        }
     }
 
     public function plans(): JsonResponse
     {
-        if (!$this->service->isFeatureEnabled()) {
+        if (!$this->service()->isFeatureEnabled()) {
             return response()->json(response_formatter(DEFAULT_200, []), 200);
         }
 
@@ -49,12 +82,12 @@ class ProMemberController extends Controller
 
     public function current(Request $request): JsonResponse
     {
-        $this->service->expireDue();
-        $membership = $this->service->activeMembership($request->user()->id);
+        $this->service()->expireDue();
+        $membership = $this->service()->activeMembership($request->user()->id);
         return response()->json(response_formatter(DEFAULT_200, [
             'is_pro_member' => $membership ? 1 : 0,
             'membership' => $membership,
-            'adjustments_preview' => $this->service->cartAdjustments($request->user()->id),
+            'adjustments_preview' => $this->service()->cartAdjustments($request->user()->id),
         ]), 200);
     }
 
@@ -69,7 +102,7 @@ class ProMemberController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $config = $this->service->config();
+        $config = $this->service()->config();
         if (!(int)$config['enabled'] || !(int)$config['additional']['purchase_enabled']) {
             return response()->json(response_formatter(DEFAULT_403), 403);
         }
@@ -83,7 +116,7 @@ class ProMemberController extends Controller
 
         if ($request->payment_method === 'wallet_payment') {
             try {
-                $membership = $this->service->purchaseWithWallet($customer, $plan);
+                $membership = $this->service()->purchaseWithWallet($customer, $plan);
             } catch (\RuntimeException $exception) {
                 return response()->json(response_formatter(DEFAULT_400, ['message' => $exception->getMessage()]), 400);
             }
@@ -91,7 +124,7 @@ class ProMemberController extends Controller
             return response()->json(response_formatter(DEFAULT_STORE_200, $membership), 200);
         }
 
-        $membership = $this->service->createPendingMembership($customer, $plan, 'razor_pay');
+        $membership = $this->service()->createPendingMembership($customer, $plan, 'razor_pay');
         $query = http_build_query(array_filter([
             'access_token' => base64_encode($customer->id),
             'membership_id' => $membership->id,
