@@ -54,6 +54,15 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
 
     Route::get('offline-payment', 'ConfigController@offline_payment');
     Route::get('offline-payment-method', 'ConfigController@offline_payment');
+    Route::get('advertisement', 'ConfigController@offline_payment');
+    Route::get('bonus-list', 'ConfigController@offline_payment');
+    Route::get('wallet-bonus-list', 'ConfigController@offline_payment');
+    Route::get('wallet/bonus-list', 'ConfigController@offline_payment');
+    Route::get('error-logs', 'ConfigController@offline_payment');
+    Route::get('addon', 'ConfigController@offline_payment');
+    Route::get('html-pages', 'ConfigController@offline_payment');
+    Route::get('html-content', 'ConfigController@offline_payment');
+    Route::get('pages', 'ConfigController@pages');
 
     Route::group(['middleware' => ['auth:api']], function () {
         Route::put('update/fcm-token','CustomerController@update_fcm_token');

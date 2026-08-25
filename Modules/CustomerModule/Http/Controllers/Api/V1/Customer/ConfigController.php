@@ -189,6 +189,7 @@ class ConfigController extends Controller
             'customer_self_registration' => (int) (settings_live('customer_self_registration', 'customer_config', 1)),
             'customer_can_cancel_booking' => (int) (settings_live('customer_can_cancel_booking', 'service_setup', 1)),
             'maintenance' => mstoo_under_maintenance() ? mstoo_maintenance_config() : ['status' => 0],
+            'maintenance_mode' => mstoo_under_maintenance() ? 1 : 0,
             'social_media' => customer_social_media(),
             'otp_resend_time' => $otpResend,
             'default_commission' => settings_live('default_commission', 'business_information'),

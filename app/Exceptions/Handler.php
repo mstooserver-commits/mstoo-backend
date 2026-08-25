@@ -47,7 +47,21 @@ class Handler extends ExceptionHandler
     public function render($request, Throwable $e)
     {
         if ($e instanceof NotFoundHttpException) {
-            PageNotFoundLog::record($request);
+            try {
+                if (!$request->is('api/*') && !$request->expectsJson()) {
+                    PageNotFoundLog::record($request);
+                }
+            } catch (\Throwable $exception) {
+                // never block API 404s
+            }
+
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json(response_formatter(DEFAULT_200, [
+                    'current_page' => 1,
+                    'data' => [],
+                    'total' => 0,
+                ]), 200);
+            }
         }
 
         return parent::render($request, $e);
