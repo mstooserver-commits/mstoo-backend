@@ -13,6 +13,36 @@
             <div class="page-title-wrap mb-3">
                 <h2 class="page-title">{{translate('Keyword_Search_Analytics')}}</h2>
             </div>
+            @isset($keywordStats)
+            <div class="row g-3 mb-3">
+                @foreach([
+                    ['Total searches', $keywordStats['total_searches'] ?? 0],
+                    ['Unique users', $keywordStats['unique_users'] ?? 0],
+                    ['Today', $keywordStats['today'] ?? 0],
+                    ['This month', $keywordStats['this_month'] ?? 0],
+                    ['Top keyword', $keywordStats['top_keyword'] ?? '-'],
+                    ['Zero results', $keywordStats['zero_results'] ?? 0],
+                ] as $card)
+                    <div class="col-xl-2 col-sm-4"><div class="mstoo-kpi"><div class="kpi-label">{{$card[0]}}</div><div class="kpi-value">{{$card[1]}}</div></div></div>
+                @endforeach
+            </div>
+            @include('adminmodule::admin.report.partials._filters', [
+                'action' => route('admin.analytics.search.keyword'),
+                'filters' => $filters ?? $query_params,
+                'dropdowns' => $dropdowns ?? ['zones' => collect(), 'providers' => collect(), 'categories' => collect(), 'services' => collect()],
+                'showZones' => true,
+                    'showGranularity' => true,
+                ])
+            @endisset
+            @isset($keywordStats['volume'])
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5>{{translate('search_activity')}}</h5>
+                    <div id="keyword-volume-chart"></div>
+                </div>
+            </div>
+            @endisset
+
 
             <div class="row gy-3">
                 <div class="col-lg-4">
@@ -151,6 +181,36 @@
                     </div>
                 </div>
             </div>
+            @isset($keywordStats['rows'])
+            <div class="card mt-3">
+                <div class="card-header"><h4 class="mb-0">{{translate('keyword_search')}}</h4></div>
+                <div class="card-body table-responsive">
+                    <table class="table">
+                        <thead>
+                        <tr>
+                            <th>{{translate('Keyword')}}</th>
+                            <th>{{translate('Search Volume')}}</th>
+                            <th>{{translate('unique_users')}}</th>
+                            <th>{{translate('last_searched')}}</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @forelse($keywordStats['rows'] as $row)
+                            <tr>
+                                <td>{{$row->keyword}}</td>
+                                <td>{{$row->search_count}}</td>
+                                <td>{{$row->unique_users}}</td>
+                                <td>{{$row->last_searched}}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4" class="text-center">{{translate('Data_not_available')}}</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                    {{$keywordStats['rows']->links()}}
+                </div>
+            </div>
+            @endisset
         </div>
     </div>
 @endsection
@@ -215,6 +275,15 @@
 
         var chart = new ApexCharts(document.querySelector("#apex_radial-bar-chart"), options);
         chart.render();
+        @isset($keywordStats['volume'])
+        if (window.ApexCharts && document.querySelector('#keyword-volume-chart')) {
+            new ApexCharts(document.querySelector('#keyword-volume-chart'), {
+                chart: { type: 'area', height: 280, toolbar: { show: false } },
+                series: [{ name: 'Searches', data: @json(collect($keywordStats['volume'])->pluck('total')->map(fn ($v) => (int) $v)->values()) }],
+                xaxis: { categories: @json(collect($keywordStats['volume'])->pluck('bucket')->values()) }
+            }).render();
+        }
+        @endisset
     </script>
 
     <script>

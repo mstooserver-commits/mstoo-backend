@@ -11,9 +11,85 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <div class="page-title-wrap mb-3">
+                    <div class="page-title-wrap mb-3 d-flex justify-content-between align-items-center">
                         <h2 class="page-title">{{translate('Provider_Reports')}}</h2>
+                        @if(can_export_report())
+                            <a class="btn btn--secondary" href="{{route('admin.report.provider.download', request()->query())}}">{{translate('export')}}</a>
+                        @endif
                     </div>
+                    @isset($summary)
+                    <div class="row g-3 mb-3">
+                        @foreach([
+                            ['Total providers', $summary['total'] ?? 0],
+                            ['Active', $summary['active'] ?? 0],
+                            ['Inactive', $summary['inactive'] ?? 0],
+                            ['Provider earnings', with_currency_symbol($summary['earnings'] ?? 0)],
+                            ['Admin commission', with_currency_symbol($summary['commission'] ?? 0)],
+                            ['Bookings', $summary['bookings'] ?? 0],
+                            ['Average rating', number_format($summary['avg_rating'] ?? 0, 2)],
+                        ] as $card)
+                            <div class="col-xl-3 col-sm-6"><div class="mstoo-kpi"><div class="kpi-label">{{$card[0]}}</div><div class="kpi-value">{{$card[1]}}</div></div></div>
+                        @endforeach
+                    </div>
+                    @endisset
+                    @include('adminmodule::admin.report.partials._filters', [
+                        'action' => route('admin.report.provider'),
+                        'filters' => $filters ?? $query_params,
+                        'dropdowns' => $dropdowns ?? ['zones' => $zones, 'providers' => $providers, 'categories' => $sub_categories, 'services' => collect()],
+                        'showZones' => true,
+                        'showProviders' => true,
+                        'showCategories' => true,
+                        'showStatus' => true,
+                        'statuses' => ['active', 'inactive'],
+                    ])
+                    @isset($performance)
+                    <div class="card mb-3">
+                        <div class="card-header"><h4 class="mb-0">{{translate('provider_performance')}}</h4></div>
+                        <div class="card-body table-responsive">
+                            <table class="table">
+                                <thead>
+                                <tr>
+                                    <th>{{translate('provider')}}</th>
+                                    <th>{{translate('bookings')}}</th>
+                                    <th>{{translate('completed')}}</th>
+                                    <th>{{translate('cancelled')}}</th>
+                                    <th>{{translate('revenue')}}</th>
+                                    <th>{{translate('provider_earning')}}</th>
+                                    <th>{{translate('commission')}}</th>
+                                    <th>{{translate('rating')}}</th>
+                                    <th>{{translate('completion_rate')}}</th>
+                                    <th>{{translate('cancellation_rate')}}</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                @forelse($performance as $row)
+                                    @php
+                                        $total = max((int) $row->total_bookings, 0);
+                                        $completed = (int) $row->completed_bookings;
+                                        $canceled = (int) $row->canceled_bookings;
+                                    @endphp
+                                    <tr>
+                                        <td>{{$row->company_name}}</td>
+                                        <td>{{$total}}</td>
+                                        <td>{{$completed}}</td>
+                                        <td>{{$canceled}}</td>
+                                        <td>{{with_currency_symbol($row->revenue_generated)}}</td>
+                                        <td>{{with_currency_symbol($row->provider_earning)}}</td>
+                                        <td>{{with_currency_symbol($row->admin_commission)}}</td>
+                                        <td>{{number_format($row->avg_rating ?? 0, 2)}}</td>
+                                        <td>{{$total ? number_format(($completed * 100) / $total, 1) : 0}}%</td>
+                                        <td>{{$total ? number_format(($canceled * 100) / $total, 1) : 0}}%</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="10" class="text-center">{{translate('Data_not_available')}}</td></tr>
+                                @endforelse
+                                </tbody>
+                            </table>
+                            {{$performance->links()}}
+                        </div>
+                    </div>
+                    @endisset
+
 
                     <div class="card">
                         <div class="card-body">
@@ -101,6 +177,7 @@
                                 </form>
 
                                 <div class="d-flex flex-wrap align-items-center gap-3">
+                                    @if(can_export_report())
                                     <div class="dropdown">
                                         <button type="button"
                                             class="btn btn--secondary text-capitalize dropdown-toggle"
@@ -111,7 +188,7 @@
                                             <li><a class="dropdown-item" href="{{route('admin.report.provider.download').'?'.http_build_query($query_params)}}">{{translate('Excel')}}</a></li>
                                         </ul>
                                     </div>
-
+                                    @endif
                                 </div>
                             </div>
 

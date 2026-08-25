@@ -65,6 +65,7 @@ class BookingReportController extends Controller
     }
     public function get_booking_report(Request $request)
     {
+        abort_unless(can_view_report('booking_report'), 403);
         Validator::make($request->all(), [
             'zone_ids' => 'array',
             'zone_ids.*' => 'uuid',
@@ -112,8 +113,7 @@ class BookingReportController extends Controller
 
         //** Table Data **
         $filtered_bookings = self::filter_query($this->booking, $request)
-            // ->with(['customer', 'provider.owner'])
-            ->with(['customer', 'provider'])
+            ->with(['customer', 'provider', 'zone', 'detail.service', 'details_amounts'])
             ->when($request->has('booking_status') && $request['booking_status'] != 'all' , function ($query) use($request) {
                 $query->where('booking_status', $request['booking_status']);
             })
@@ -131,22 +131,19 @@ class BookingReportController extends Controller
 
         //** Card Data **
         $bookings_for_amount = self::filter_query($this->booking, $request)
-            // ->with(['customer', 'provider.owner'])
-            ->with(['customer', 'provider'])
-            ->whereIn('booking_status', ['accepted', 'ongoing', 'completed', 'canceled'])
-            ->get();
+            ->whereIn('booking_status', ['accepted', 'ongoing', 'completed', 'canceled']);
 
         $bookings_count = [];
-        $bookings_count['total_bookings'] = $bookings_for_amount->count();
-        $bookings_count['accepted'] = $bookings_for_amount->where('booking_status', 'accepted')->count();
-        $bookings_count['ongoing'] = $bookings_for_amount->where('booking_status', 'ongoing')->count();
-        $bookings_count['completed'] = $bookings_for_amount->where('booking_status', 'completed')->count();
-        $bookings_count['canceled'] = $bookings_for_amount->where('booking_status', 'canceled')->count();
+        $bookings_count['total_bookings'] = (clone $bookings_for_amount)->count();
+        $bookings_count['accepted'] = (clone $bookings_for_amount)->where('booking_status', 'accepted')->count();
+        $bookings_count['ongoing'] = (clone $bookings_for_amount)->where('booking_status', 'ongoing')->count();
+        $bookings_count['completed'] = (clone $bookings_for_amount)->where('booking_status', 'completed')->count();
+        $bookings_count['canceled'] = (clone $bookings_for_amount)->where('booking_status', 'canceled')->count();
 
         $booking_amount = [];
-        $booking_amount['total_booking_amount'] = $bookings_for_amount->sum('total_booking_amount');
-        $booking_amount['total_paid_booking_amount'] = $bookings_for_amount->where('payment_method', '!=', 'cash_after_service')->where('booking_status', 'completed')->sum('total_booking_amount');
-        $booking_amount['total_unpaid_booking_amount'] = $bookings_for_amount->where('payment_method', '!=', 'cash_after_service')->where('booking_status', '!=', 'completed')->sum('total_booking_amount');
+        $booking_amount['total_booking_amount'] = (float) (clone $bookings_for_amount)->sum('total_booking_amount');
+        $booking_amount['total_paid_booking_amount'] = (float) (clone $bookings_for_amount)->where('payment_method', '!=', 'cash_after_service')->where('booking_status', 'completed')->sum('total_booking_amount');
+        $booking_amount['total_unpaid_booking_amount'] = (float) (clone $bookings_for_amount)->where('payment_method', '!=', 'cash_after_service')->where('booking_status', '!=', 'completed')->sum('total_booking_amount');
 
 
         //** Chart Data **
@@ -297,7 +294,13 @@ class BookingReportController extends Controller
             }
         }
 
-        return view('adminmodule::admin.report.booking', compact('zones', 'providers', 'categories', 'sub_categories', 'search', 'filtered_bookings', 'bookings_count', 'booking_amount', 'chart_data', 'query_params'));
+        $analytics = app(\Modules\AdminModule\Services\AnalyticsReportService::class);
+        $summary = $analytics->bookingSummary($request);
+        $charts = $analytics->bookingCharts($request);
+        $dropdowns = $analytics->dropdowns();
+        $filters = $request->query();
+
+        return view('adminmodule::admin.report.booking', compact('zones', 'providers', 'categories', 'sub_categories', 'search', 'filtered_bookings', 'bookings_count', 'booking_amount', 'chart_data', 'query_params', 'summary', 'charts', 'dropdowns', 'filters'));
     }
 
     /**
@@ -311,6 +314,8 @@ class BookingReportController extends Controller
      */
     public function get_booking_report_download(Request $request): string|StreamedResponse
     {
+        abort_unless(can_export_report(), 403);
+
         Validator::make($request->all(), [
             'zone_ids' => 'array',
             'zone_ids.*' => 'uuid',

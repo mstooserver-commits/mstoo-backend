@@ -22,32 +22,51 @@ if (!function_exists('pagination_limit')) {
     {
         try {
             if (!session()->has('pagination_limit')) {
-                $limit = BusinessSettings::where('key_name', 'pagination_limit')->where('settings_type', 'business_information')->first()->live_values;
-                session()->put('pagination_limit', $limit);
-            } else {
-                $limit = session('pagination_limit');
+                $limit = settings_live('pagination_limit', 'business_information', 10);
+                if (is_array($limit)) {
+                    $limit = $limit['value'] ?? 10;
+                }
+                session()->put('pagination_limit', (int) $limit ?: 10);
             }
-        } catch (Exception $exception) {
+
+            return (int) session('pagination_limit') ?: 10;
+        } catch (\Throwable $exception) {
             return 10;
         }
+    }
+}
 
-        return $limit;
+if (!function_exists('settings_live')) {
+    function settings_live(string $key, string $settingsType, $default = null)
+    {
+        $row = business_config($key, $settingsType);
+        if (!$row) {
+            return $default;
+        }
+
+        return $row->live_values ?? $default;
     }
 }
 
 if (!function_exists('currency_code')) {
     function currency_code(): string
     {
-        $code = business_config('currency_code', 'business_information')['live_values'];
-        return $code ?? 'USD';
+        $code = settings_live('currency_code', 'business_information', 'INR');
+        if (is_array($code)) {
+            $code = $code['code'] ?? $code['currency_code'] ?? reset($code);
+        }
+
+        $code = is_string($code) || is_numeric($code) ? (string) $code : '';
+
+        return $code !== '' ? $code : 'INR';
     }
 }
 
 if (!function_exists('currency_symbol')) {
     function currency_symbol(): string
     {
-        $code = business_config('currency_code', 'business_information')['live_values'];
-        $symbol = '$';
+        $code = currency_code();
+        $symbol = '₹';
         foreach (CURRENCIES as $currency) {
             if ($currency['code'] == $code) {
                 $symbol = $currency['symbol'];
@@ -61,15 +80,16 @@ if (!function_exists('currency_symbol')) {
 if (!function_exists('with_currency_symbol')) {
     function with_currency_symbol($value): string
     {
-        $position = business_config('currency_symbol_position', 'business_information')['live_values']??'right';
-        $decimal_point = business_config('currency_decimal_point', 'business_information')['live_values']??2;
-        $code = business_config('currency_code', 'business_information')['live_values'];
-        $symbol = '$';
-        foreach (CURRENCIES as $currency) {
-            if ($currency['code'] == $code) {
-                $symbol = $currency['symbol'];
-            }
+        $position = settings_live('currency_symbol_position', 'business_information', 'right');
+        if (is_array($position)) {
+            $position = $position['position'] ?? 'right';
         }
+        $decimal_point = settings_live('currency_decimal_point', 'business_information', 2);
+        if (is_array($decimal_point)) {
+            $decimal_point = $decimal_point['value'] ?? 2;
+        }
+        $decimal_point = (int) $decimal_point;
+        $symbol = currency_symbol();
 
         if($position == 'left') {
             return $symbol . number_format($value, $decimal_point, '.', '');
@@ -83,8 +103,12 @@ if (!function_exists('with_currency_symbol')) {
 if (!function_exists('with_decimal_point')) {
     function with_decimal_point($value): float
     {
-        $decimal_point = business_config('currency_decimal_point', 'business_information')['live_values']??2;
-        return (float)(number_format($value, $decimal_point, '.', ''));
+        $decimal_point = settings_live('currency_decimal_point', 'business_information', 2);
+        if (is_array($decimal_point)) {
+            $decimal_point = $decimal_point['value'] ?? 2;
+        }
+
+        return (float) (number_format((float) $value, (int) $decimal_point, '.', ''));
     }
 }
 
@@ -92,8 +116,15 @@ if (!function_exists('generate_referer_code')) {
     function generate_referer_code() {
         $ref_code = strtoupper(Str::random(10));
 
-        if (User::where('ref_code', '=', $ref_code)->exists()) {
-            return generate_referer_code();
+        try {
+            if (!\Illuminate\Support\Facades\Schema::hasColumn('users', 'ref_code')) {
+                return $ref_code;
+            }
+            if (User::where('ref_code', '=', $ref_code)->exists()) {
+                return generate_referer_code();
+            }
+        } catch (\Throwable $exception) {
+            return $ref_code;
         }
 
         return $ref_code;

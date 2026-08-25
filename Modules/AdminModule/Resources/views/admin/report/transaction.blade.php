@@ -11,9 +11,102 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <div class="page-title-wrap mb-3">
+                    <div class="page-title-wrap mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <h2 class="page-title">{{translate('Transaction_Reports')}}</h2>
+                        @if(can_export_report())
+                            <a class="btn btn--secondary" href="{{route('admin.report.transaction.download', request()->query())}}">
+                                <span class="material-icons">file_download</span> {{translate('export')}}
+                            </a>
+                        @endif
                     </div>
+
+                    @isset($summary)
+                    <div class="row g-3 mb-3">
+                        @foreach([
+                            ['Total Transactions', $summary['total_transactions'] ?? 0],
+                            ['Total Revenue', with_currency_symbol($summary['total_revenue'] ?? 0)],
+                            ['Commission', with_currency_symbol($summary['total_commission'] ?? 0)],
+                            ['Provider Earnings', with_currency_symbol($summary['provider_earnings'] ?? 0)],
+                            ['Admin Earnings', with_currency_symbol($summary['admin_earnings'] ?? 0)],
+                            ['Refunds', with_currency_symbol($summary['total_refund'] ?? 0)],
+                            ['Discounts', with_currency_symbol($summary['total_discount'] ?? 0)],
+                            ['Tax', with_currency_symbol($summary['total_tax'] ?? 0)],
+                        ] as $card)
+                            <div class="col-xl-3 col-sm-6">
+                                <div class="mstoo-kpi">
+                                    <div class="kpi-label">{{$card[0]}}</div>
+                                    <div class="kpi-value">{{$card[1]}}</div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                    @endisset
+                    @isset($charts)
+                    <div class="row g-3 mb-3">
+                        <div class="col-lg-8">
+                            <div class="card"><div class="card-body">
+                                <h5>{{translate('revenue_over_time')}}</h5>
+                                <div id="trx-revenue-chart"></div>
+                            </div></div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card"><div class="card-body">
+                                <h5>{{translate('payment_method')}}</h5>
+                                <div id="trx-method-chart"></div>
+                            </div></div>
+                        </div>
+                    </div>
+                    @endisset
+
+                    @isset($dailyRows)
+                    <div class="card mb-3">
+                        <div class="card-header"><h4 class="mb-0">{{translate('transaction_reports')}}</h4></div>
+                        <div class="card-body table-responsive">
+                            <table class="table">
+                                <thead>
+                                <tr>
+                                    <th>{{translate('date')}}</th>
+                                    <th>{{translate('count')}}</th>
+                                    <th>{{translate('gross')}}</th>
+                                    <th>{{translate('discount')}}</th>
+                                    <th>{{translate('tax')}}</th>
+                                    <th>{{translate('refund')}}</th>
+                                    <th>{{translate('commission')}}</th>
+                                    <th>{{translate('provider_earning')}}</th>
+                                    <th>{{translate('admin_earning')}}</th>
+                                    <th>{{translate('net_revenue')}}</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                @foreach($dailyRows as $row)
+                                    <tr>
+                                        <td>{{$row->report_date}}</td>
+                                        <td>{{$row->transaction_count}}</td>
+                                        <td>{{with_currency_symbol($row->gross_amount)}}</td>
+                                        <td>{{with_currency_symbol($row->discount ?? 0)}}</td>
+                                        <td>{{with_currency_symbol($row->tax ?? 0)}}</td>
+                                        <td>{{with_currency_symbol($row->refund)}}</td>
+                                        <td>{{with_currency_symbol($row->commission)}}</td>
+                                        <td>{{with_currency_symbol($row->provider_earning)}}</td>
+                                        <td>{{with_currency_symbol($row->admin_earning ?? $row->commission)}}</td>
+                                        <td>{{with_currency_symbol($row->net_revenue ?? $row->gross_amount)}}</td>
+                                    </tr>
+                                @endforeach
+                                </tbody>
+                            </table>
+                            {{$dailyRows->links()}}
+                        </div>
+                    </div>
+                    @endisset
+
+                    @include('adminmodule::admin.report.partials._filters', [
+                        'action' => route('admin.report.transaction'),
+                        'filters' => $filters ?? $query_params,
+                        'dropdowns' => $dropdowns ?? ['zones' => $zones, 'providers' => $providers, 'categories' => collect(), 'services' => collect(), 'trx_types' => []],
+                        'showZones' => true,
+                        'showProviders' => true,
+                        'showGranularity' => true,
+                    ])
 
                     <div class="card">
                         <div class="card-body">
@@ -289,5 +382,23 @@
                 }
             });
         });
+        @isset($charts)
+        if (window.ApexCharts) {
+            new ApexCharts(document.querySelector('#trx-revenue-chart'), {
+                chart: { type: 'line', height: 320, toolbar: { show: false } },
+                series: [
+                    { name: 'Revenue', data: @json($charts['revenue'] ?? []) },
+                    { name: 'Commission', data: @json($charts['commission'] ?? []) },
+                    { name: 'Volume', data: @json($charts['volume'] ?? []) }
+                ],
+                xaxis: { categories: @json($charts['timeline'] ?? []) }
+            }).render();
+            new ApexCharts(document.querySelector('#trx-method-chart'), {
+                chart: { type: 'donut', height: 320 },
+                series: @json($charts['methods']['series'] ?? []),
+                labels: @json($charts['methods']['labels'] ?? [])
+            }).render();
+        }
+        @endisset
     </script>
 @endpush

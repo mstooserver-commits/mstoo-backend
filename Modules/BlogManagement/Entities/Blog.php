@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Schema;
 use Modules\UserManagement\Entities\User;
 
 class Blog extends Model
@@ -111,13 +113,23 @@ class Blog extends Model
         return $this->{$field} ?? $fallback;
     }
 
+    public static function bootSoftDeletes()
+    {
+        if (Schema::hasTable('blogs') && Schema::hasColumn('blogs', 'deleted_at')) {
+            static::addGlobalScope(new SoftDeletingScope);
+        }
+    }
+
     public static function boot()
     {
         parent::boot();
 
         static::creating(function (self $model) {
             if (empty($model->serial)) {
-                $model->serial = (int) (self::withTrashed()->max('serial') ?? 0) + 1;
+                $query = Schema::hasColumn($model->getTable(), 'deleted_at')
+                    ? self::withTrashed()
+                    : self::query();
+                $model->serial = (int) ($query->max('serial') ?? 0) + 1;
             }
         });
     }

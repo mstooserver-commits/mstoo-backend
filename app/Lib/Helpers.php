@@ -294,11 +294,11 @@ if (!function_exists('sanitize_html')) {
     function sanitize_html(?string $html): string
     {
         $html = (string) $html;
-        $html = preg_replace('#<(script|iframe|object|embed|link|meta|form|input|button)\b[^>]*>.*?</\1>#is', '', $html);
-        $html = preg_replace('#<(script|iframe|object|embed|link|meta|form|input|button)\b[^>]*/?>#is', '', $html);
-        $html = preg_replace('#on\w+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)#i', '', $html);
-        $html = preg_replace('#javascript\s*:#i', '', $html);
-        $html = preg_replace('#data\s*:#i', '', $html);
+        $html = preg_replace('#<(script|iframe|object|embed|link|meta|form|input|button)\b[^>]*>.*?</\1>#is', '', $html) ?? $html;
+        $html = preg_replace('#<(script|iframe|object|embed|link|meta|form|input|button)\b[^>]*/?>#is', '', $html) ?? $html;
+        $html = preg_replace('#on\w+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)#i', '', $html) ?? $html;
+        $html = preg_replace('#javascript\s*:#i', '', $html) ?? $html;
+        $html = preg_replace('#data\s*:#i', '', $html) ?? $html;
 
         $allowed = '<p><br><strong><b><em><i><u><s><h1><h2><h3><h4><h5><h6><ul><ol><li><a><img><blockquote><table><thead><tbody><tfoot><tr><th><td><pre><code><hr><span><div><figure><figcaption>';
         return trim(strip_tags($html, $allowed));

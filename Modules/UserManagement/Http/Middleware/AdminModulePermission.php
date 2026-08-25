@@ -26,7 +26,25 @@ class AdminModulePermission
 
         $resolvedAction = $action ?: $this->actionFromMethod($request);
 
+        if (in_array($module, ['report_management', 'transaction_management'], true)
+            && !$action
+            && $request->isMethod('post')
+            && in_array($resolvedAction, ['create', 'edit'], true)
+        ) {
+            $resolvedAction = 'view';
+        }
+
         if (access_checker($module, $resolvedAction)) {
+            return $next($request);
+        }
+
+        if ($module === 'report_management' && access_checker('report_management', 'view')) {
+            if ($resolvedAction !== 'export' || can_export_report()) {
+                return $next($request);
+            }
+        }
+
+        if ($module === 'transaction_management' && $resolvedAction === 'export' && access_checker('transaction_management', 'view')) {
             return $next($request);
         }
 

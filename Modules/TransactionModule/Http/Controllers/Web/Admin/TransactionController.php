@@ -2,170 +2,90 @@
 
 namespace Modules\TransactionModule\Http\Controllers\Web\Admin;
 
-use Illuminate\Contracts\Support\Renderable;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Routing\Controller;
-use Illuminate\View\View;
+use Modules\AdminModule\Services\AnalyticsReportService;
 use Modules\TransactionModule\Entities\Transaction;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-
 class TransactionController extends Controller
 {
-    private Transaction $transaction;
-
-    public function __construct(Transaction $transaction)
+    public function __construct(private AnalyticsReportService $reports)
     {
-        $this->transaction = $transaction;
     }
 
-    /**
-     * Display a listing of the resource.
-     * @param Request $request
-     * @return Renderable
-     */
     public function index(Request $request)
     {
-        $request->validate([
-            'start_date' => 'date',
-            'end_date' => 'date',
-            'trx_type' => 'in:debit,credit,all'
-        ]);
+        abort_unless(access_checker('transaction_management'), 403);
 
-        $search = $request->has('search') ? $request['search'] : '';
-        $trx_type = $request->has('trx_type') ? $request['trx_type'] : 'all';
-        $query_param = ['search' => $search, 'trx_type' => $trx_type];
+        $transactions = $this->reports->transactionQuery($request)
+            ->paginate(pagination_limit())
+            ->appends($request->query());
+        $summary = $this->reports->transactionSummary($request);
+        $dropdowns = $this->reports->dropdowns();
+        $filters = $request->query();
 
-
-        $transactions = $this->transaction->with(['from_user.provider', 'to_user.provider'])
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('id', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
-            ->when($request['trx_type'] != 'all', function ($query) use ($request) {
-                if ($request['trx_type'] == 'debit') {
-                    return $query->where('debit', '!=', 0);
-                } else {
-                    return $query->where('credit', '!=', 0);
-                }
-            })
-            ->when($request->has('from_date') && $request->has('to_date'), function ($query) use ($request) {
-                $query->whereBetween('created_at', [date('Y-m-d', strtotime($request['from_date'])), date('Y-m-d', strtotime($request['to_date']))]);
-            })
-            ->latest()->paginate(pagination_limit())->appends($query_param);
-
-        $data = [
-            'commission_earning' => $this->transaction->where('trx_type', 'commission')->whereIn('to_user_account', ['received_balance'])
-                ->when($request->has('start_date') && $request->has('end_date'), function ($query) use ($request) {
-                    return $query->whereBetween('created_at', [$request['start_date'], $request['end_date']]);
-                })->sum('credit'),
-            'total_debit' => $this->transaction
-                ->when($request->has('start_date') && $request->has('end_date'), function ($query) use ($request) {
-                    return $query->whereBetween('created_at', [$request['start_date'], $request['end_date']]);
-                })->sum('debit'),
-            'total_credit' => $this->transaction
-                ->when($request->has('start_date') && $request->has('end_date'), function ($query) use ($request) {
-                    return $query->whereBetween('created_at', [$request['start_date'], $request['end_date']]);
-                })->sum('credit')
-        ];
-
-        return view('transactionmodule::admin.list',compact('transactions', 'data', 'trx_type', 'search'));
+        return view('transactionmodule::admin.list', compact('transactions', 'summary', 'dropdowns', 'filters'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     * @param Request $request
-     * @return JsonResponse
-     */
-    public function store(Request $request): JsonResponse
+    public function show(string $id)
     {
-        $validator = Validator::make($request->all(), [
-            'amount' => 'required|numeric|min:1',
-            'from_user_id' => 'required|uuid',
-            'to_user_id' => 'required|uuid'
-        ]);
+        abort_unless(access_checker('transaction_management'), 403);
 
-        if ($validator->fails()) {
-            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        $transaction = Transaction::query()
+            ->with(['booking.customer', 'booking.zone', 'booking.details_amounts', 'from_user.provider', 'to_user.provider'])
+            ->findOrFail($id);
+
+        return view('transactionmodule::admin.show', compact('transaction'));
+    }
+
+    public function print(string $id)
+    {
+        abort_unless(access_checker('transaction_management'), 403);
+
+        $transaction = Transaction::query()
+            ->with(['booking.customer', 'booking.zone', 'from_user.provider', 'to_user.provider'])
+            ->findOrFail($id);
+
+        return view('transactionmodule::admin.print', compact('transaction'));
+    }
+
+    public function download(Request $request): StreamedResponse|string
+    {
+        abort_unless(access_checker('transaction_management', 'export') || access_checker('transaction_management'), 403);
+
+        $items = $this->reports->transactionQuery($request)->limit(5000)->get();
+        $filename = time() . '-transactions.xlsx';
+        if ($request->input('format') === 'csv') {
+            $filename = time() . '-transactions.csv';
         }
 
-        //make transaction
-        DB::transaction(function () use ($request) {
-            $transaction = $this->transaction;
-            //first transaction
-            $data = [
-                'ref_trx_id' => null,
-                'booking_id' => $request->booking_id,
-                'trx_type' => null,
-                'debit' => $request->amount,
-                'credit' => 0,
-                'balance' => 0,
-                'from_user_id' => $request->from_user_id,
-                'to_user_id' => $request->to_user_id
-            ];
-            $transaction::create($data);
-
-            //second transactions
-            $data = [
-                'ref_trx_id' => $transaction['trx_id'],
-                'booking_id' => $request->booking_id,
-                'trx_type' => null,
-                'debit' => 0,
-                'credit' => $request->amount,
-                'balance' => 0,
-                'from_user_id' => $request->to_user_id,
-                'to_user_id' => $request->from_user_id
-            ];
-            $transaction::create($data);
+        return (new FastExcel($items))->download($filename, function (Transaction $transaction) {
+            return $this->exportRow($transaction);
         });
-
-        return response()->json(response_formatter(DEFAULT_STORE_200), 200);
     }
 
-
-    /**
-     * Display a listing of the resource.
-     * @param Request $request
-     * @return string|StreamedResponse
-     */
-    public function download(Request $request): string|StreamedResponse
+    private function exportRow(Transaction $transaction): array
     {
+        $booking = $transaction->booking;
+        $from = $transaction->from_user;
+        $to = $transaction->to_user;
 
-        $request->validate([
-            'start_date' => 'date',
-            'end_date' => 'date',
-            'trx_type' => 'in:debit,credit,all'
-        ]);
-
-        $items = $this->transaction
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('id', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
-            ->when($request['trx_type'] != 'all', function ($query) use ($request) {
-                if ($request['trx_type'] == 'debit') {
-                    return $query->where('debit', '!=', 0);
-                } else {
-                    return $query->where('credit', '!=', 0);
-                }
-            })
-            ->when($request->has('from_date') && $request->has('to_date'), function ($query) use ($request) {
-                $query->whereBetween('created_at', [date('Y-m-d', strtotime($request['from_date'])), date('Y-m-d', strtotime($request['to_date']))]);
-            })
-            ->latest()->get();
-
-        return (new FastExcel($items))->download(time().'-file.xlsx');
+        return [
+            'Transaction ID' => $transaction->id,
+            'Reference ID' => $transaction->ref_trx_id,
+            'Customer' => trim(($from->first_name ?? '') . ' ' . ($from->last_name ?? '')) ?: ($from->email ?? '-'),
+            'Provider' => optional(optional($to)->provider)->company_name
+                ?: trim(($to->first_name ?? '') . ' ' . ($to->last_name ?? '')),
+            'Booking ID' => optional($booking)->readable_id ?: $transaction->booking_id,
+            'Type' => $transaction->trx_type,
+            'Payment method' => optional($booking)->payment_method,
+            'Debit' => $transaction->debit,
+            'Credit' => $transaction->credit,
+            'Amount' => $transaction->debit + $transaction->credit,
+            'Status' => optional($booking)->booking_status,
+            'Date' => optional($transaction->created_at)->toDateTimeString(),
+        ];
     }
 }

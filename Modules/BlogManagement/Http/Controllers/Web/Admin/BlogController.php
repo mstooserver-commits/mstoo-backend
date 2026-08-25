@@ -5,8 +5,12 @@ namespace Modules\BlogManagement\Http\Controllers\Web\Admin;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Modules\BlogManagement\Entities\Blog;
 use Modules\BlogManagement\Entities\BlogCategory;
 use Modules\BlogManagement\Entities\BlogTag;
@@ -27,13 +31,37 @@ class BlogController extends Controller
     public function index(Request $request)
     {
         $filters = $this->filters($request);
+
+        if (!Schema::hasTable('blogs')) {
+            Toastr::error(translate('blog_tables_are_missing_run_migrate'));
+            $blogs = new LengthAwarePaginator([], 0, $this->perPage($request), 1, [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]);
+            $categories = collect();
+            $authors = collect();
+            $languages = active_languages();
+            $settings = $this->settingsPayload();
+
+            return view('blogmanagement::admin.blog.index', compact(
+                'blogs',
+                'categories',
+                'authors',
+                'languages',
+                'settings',
+                'filters'
+            ));
+        }
+
         $blogs = $this->filteredQuery($request)
             ->with(['category:id,name', 'author:id,first_name,last_name,email'])
             ->orderByDesc('created_at')
             ->paginate($this->perPage($request))
             ->appends($request->query());
 
-        $categories = BlogCategory::query()->orderBy('name')->get(['id', 'name']);
+        $categories = Schema::hasTable('blog_categories')
+            ? BlogCategory::query()->orderBy('name')->get(['id', 'name'])
+            : collect();
         $authors = User::query()
             ->whereIn('user_type', ADMIN_USER_TYPES)
             ->orderBy('first_name')
@@ -58,13 +86,24 @@ class BlogController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if (!Schema::hasTable('blogs')) {
+            Toastr::error(translate('blog_tables_are_missing_run_migrate'));
+            return back()->withInput();
+        }
+
         $data = $this->validated($request);
 
-        $blog = new Blog();
-        $this->fillBlog($blog, $data, $request);
-        $blog->author_id = $data['author_id'] ?? auth()->id();
-        $blog->save();
-        $this->blogService->syncTags($blog, $request->input('tags', []));
+        try {
+            $blog = new Blog();
+            $this->fillBlog($blog, $data, $request);
+            $blog->author_id = $data['author_id'] ?? auth()->id();
+            $blog->save();
+            $this->blogService->syncTags($blog, $request->input('tags', []));
+        } catch (\Throwable $exception) {
+            report($exception);
+            Toastr::error(translate('blog_could_not_be_saved') . ': ' . $exception->getMessage());
+            return back()->withInput();
+        }
 
         Toastr::success(translate('blog_created_successfully'));
         return redirect()->route('admin.blog.index');
@@ -92,14 +131,20 @@ class BlogController extends Controller
         $data = $this->validated($request, $blog->id);
         $oldSlug = $blog->slug;
 
-        $this->fillBlog($blog, $data, $request, $blog->cover_image, $blog->og_image);
-        $blog->save();
+        try {
+            $this->fillBlog($blog, $data, $request, $blog->cover_image, $blog->og_image);
+            $blog->save();
 
-        if ($oldSlug !== $blog->slug && in_array($blog->status, [Blog::STATUS_PUBLISHED, Blog::STATUS_SCHEDULED], true)) {
-            $this->blogService->rememberSlugRedirect($blog, $oldSlug);
+            if ($oldSlug !== $blog->slug && in_array($blog->status, [Blog::STATUS_PUBLISHED, Blog::STATUS_SCHEDULED], true)) {
+                $this->blogService->rememberSlugRedirect($blog, $oldSlug);
+            }
+
+            $this->blogService->syncTags($blog, $request->input('tags', []));
+        } catch (\Throwable $exception) {
+            report($exception);
+            Toastr::error(translate('blog_could_not_be_saved') . ': ' . $exception->getMessage());
+            return back()->withInput();
         }
-
-        $this->blogService->syncTags($blog, $request->input('tags', []));
 
         Toastr::success(translate('blog_updated_successfully'));
         return redirect()->route('admin.blog.edit', $blog->id);
@@ -184,6 +229,11 @@ class BlogController extends Controller
 
     public function download(Request $request)
     {
+        if (!Schema::hasTable('blogs')) {
+            Toastr::error(translate('blog_tables_are_missing_run_migrate'));
+            return back();
+        }
+
         $items = $this->filteredQuery($request)
             ->with(['category:id,name', 'author:id,first_name,last_name'])
             ->latest()
@@ -207,6 +257,10 @@ class BlogController extends Controller
     {
         $term = trim((string) $request->get('q', ''));
 
+        if (!Schema::hasTable('blog_tags')) {
+            return response()->json(['results' => []]);
+        }
+
         $tags = BlogTag::query()
             ->when($term !== '', function ($query) use ($term) {
                 $query->where('name', 'like', '%' . $term . '%');
@@ -221,23 +275,32 @@ class BlogController extends Controller
 
     private function validated(Request $request, ?string $ignoreId = null): array
     {
-        $slugRule = 'nullable|string|max:191|unique:blogs,slug';
-        if ($ignoreId) {
-            $slugRule .= ',' . $ignoreId . ',id,deleted_at,NULL';
+        $slugRules = ['nullable', 'string', 'max:191'];
+        if (Schema::hasTable('blogs')) {
+            $slugRule = Rule::unique('blogs', 'slug');
+            if (Schema::hasColumn('blogs', 'deleted_at')) {
+                $slugRule->whereNull('deleted_at');
+            }
+            if ($ignoreId) {
+                $slugRule->ignore($ignoreId);
+            }
+            $slugRules[] = $slugRule;
         }
 
         $data = $request->validate([
             'title' => 'required|string|max:191',
-            'slug' => $slugRule,
+            'slug' => $slugRules,
             'excerpt' => 'nullable|string|max:500',
             'content' => 'required|string',
-            'category_id' => 'nullable|uuid|exists:blog_categories,id',
+            'category_id' => Schema::hasTable('blog_categories')
+                ? 'nullable|uuid|exists:blog_categories,id'
+                : 'nullable|uuid',
             'author_id' => 'nullable|uuid|exists:users,id',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:80',
             'status' => 'required|in:draft,published,scheduled,archived',
             'published_at' => 'nullable|date',
-            'cover_image' => ($ignoreId ? 'nullable' : 'required') . '|image|mimes:jpeg,jpg,png,webp|max:5120|dimensions:max_width=5000,max_height=5000',
+            'cover_image' => ($ignoreId ? 'nullable' : 'required') . '|image|mimes:jpeg,jpg,png,webp|max:5120',
             'meta_title' => 'nullable|string|max:191',
             'meta_description' => 'nullable|string|max:300',
             'meta_keywords' => 'nullable|string|max:255',
@@ -277,12 +340,14 @@ class BlogController extends Controller
         ]);
 
         if ($request->hasFile('cover_image')) {
+            Storage::disk('public')->makeDirectory('blog');
             $blog->cover_image = file_uploader('blog/', 'png', $request->file('cover_image'), $existingCover);
         } elseif ($existingCover) {
             $blog->cover_image = $existingCover;
         }
 
         if ($request->hasFile('og_image')) {
+            Storage::disk('public')->makeDirectory('blog/og');
             $blog->og_image = file_uploader('blog/og/', 'png', $request->file('og_image'), $existingOg);
         } elseif ($existingOg) {
             $blog->og_image = $existingOg;

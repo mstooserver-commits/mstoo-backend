@@ -3,6 +3,7 @@
 namespace Modules\BlogManagement\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Modules\BlogManagement\Entities\Blog;
 use Modules\BlogManagement\Entities\BlogCategory;
@@ -20,17 +21,7 @@ class BlogService
 
         $base = $slug;
         $i = 1;
-        while (
-            DB::table($table)
-                ->when($ignoreId, function ($query) use ($ignoreId) {
-                    $query->where('id', '!=', $ignoreId);
-                })
-                ->when(in_array($table, ['blogs', 'blog_categories'], true), function ($query) {
-                    $query->whereNull('deleted_at');
-                })
-                ->where('slug', $slug)
-                ->exists()
-        ) {
+        while ($this->slugExists($table, $slug, $ignoreId)) {
             $slug = $base . '-' . $i;
             $i++;
         }
@@ -38,11 +29,28 @@ class BlogService
         return $slug;
     }
 
+    private function slugExists(string $table, string $slug, ?string $ignoreId = null): bool
+    {
+        if (!Schema::hasTable($table)) {
+            return false;
+        }
+
+        $query = DB::table($table)->where('slug', $slug);
+        if ($ignoreId) {
+            $query->where('id', '!=', $ignoreId);
+        }
+        if (in_array($table, ['blogs', 'blog_categories'], true) && Schema::hasColumn($table, 'deleted_at')) {
+            $query->whereNull('deleted_at');
+        }
+
+        return $query->exists();
+    }
+
     public function collectTranslations(array $input, array $fields): array
     {
         $translations = [];
         foreach (active_languages() as $language) {
-            $code = $language['code'];
+            $code = (string) ($language['code'] ?? $language['code'] ?? 'en');
             $row = [];
             foreach ($fields as $field) {
                 $key = $field . '_' . $code;
@@ -75,7 +83,11 @@ class BlogService
             }
 
             $slug = $this->uniqueSlug($name, null, 'blog_tags');
-            $tag = BlogTag::query()->where('slug', Str::slug($name))->orWhere('name', $name)->first();
+        $tag = BlogTag::query()
+            ->where(function ($query) use ($name) {
+                $query->where('slug', Str::slug($name))->orWhere('name', $name);
+            })
+            ->first();
             if (!$tag) {
                 $tag = BlogTag::query()->create([
                     'name' => $name,
@@ -150,6 +162,10 @@ class BlogService
 
     public function categoriesForSelect()
     {
+        if (!Schema::hasTable('blog_categories')) {
+            return collect();
+        }
+
         return BlogCategory::query()->ofStatus(1)->orderBy('sort_order')->orderBy('name')->get();
     }
 }

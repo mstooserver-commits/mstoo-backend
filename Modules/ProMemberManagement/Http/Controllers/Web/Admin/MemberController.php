@@ -36,12 +36,13 @@ class MemberController extends Controller
                 $term = '%' . str_replace(['%', '_'], ['\%', '\_'], $search) . '%';
                 $query->where(function ($query) use ($term, $search) {
                     $query->where('id', $search)
-                        ->orWhereHas('customer', function ($query) use ($term) {
-                            $query->where('first_name', 'like', $term)
-                                ->orWhere('last_name', 'like', $term)
-                                ->orWhere('email', 'like', $term)
-                                ->orWhere('phone', 'like', $term)
-                                ->orWhere('id', 'like', $term);
+                        ->orWhereHas('customer', function ($query) use ($term, $search) {
+                            $query->where(function ($customer) use ($term, $search) {
+                                $customer->whereNameLike($search)
+                                    ->orWhere('email', 'like', $term)
+                                    ->orWhere('phone', 'like', $term)
+                                    ->orWhere('id', 'like', $term);
+                            });
                         });
                 });
             })

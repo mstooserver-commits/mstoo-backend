@@ -115,7 +115,7 @@ class Service extends Model
                     $query->where('is_active', 1);
                 });
 
-        } else if($status = 0) {
+        } else if ($status == 0) {
             $query->where(['is_active' => 0]);
         }
     }
@@ -147,7 +147,7 @@ class Service extends Model
             return '';
         }
 
-        return trim(($poster->first_name ?? '') . ' ' . ($poster->last_name ?? ''));
+        return $poster->displayName();
     }
 
     public function adLocation(): string

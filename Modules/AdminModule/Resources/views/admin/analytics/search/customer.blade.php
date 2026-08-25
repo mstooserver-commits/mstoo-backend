@@ -12,6 +12,12 @@
             <div class="page-title-wrap mb-3">
                 <h2 class="page-title">{{translate('Customer_Search_Analytics')}}</h2>
             </div>
+            @include('adminmodule::admin.report.partials._filters', [
+                'action' => route('admin.analytics.search.customer'),
+                'filters' => $filters ?? $query_params,
+                'dropdowns' => $dropdowns ?? ['zones' => collect(), 'providers' => collect(), 'categories' => collect(), 'services' => collect()],
+            ])
+
 
             <div class="row gy-3">
                 <div class="col-lg-6">
@@ -120,6 +126,7 @@
                                        value="{{$search??''}}" name="search"
                                        placeholder="{{translate('search_by_Customer')}}">
                             </div>
+                            <input type="text" class="theme-input-style" name="booking_id" value="{{request('booking_id')}}" placeholder="{{translate('booking')}}">
                             <button type="submit" class="btn btn--primary">{{translate('search')}}</button>
                         </form>
                     </div>
@@ -128,54 +135,41 @@
                         <table class="table align-middle">
                             <thead class="text-nowrap">
                             <tr>
-                                <th>{{translate('SL')}}</th>
                                 <th>{{translate('Customer')}}</th>
-                                <th>{{translate('Search')}} <br> {{translate('Volume')}}</th>
-                                <th>{{translate('Related')}} <br> {{translate('Services')}}</th>
-                                <th>{{translate('Times Service')}} <br> {{translate('Visited')}}</th>
-                                <th>{{translate('Times Added')}} <br> {{translate('to Cart')}}</th>
-                                <th>{{translate('Total')}} <br> {{translate('Booking')}}</th>
-                                <th class="text-center">{{translate('Action')}}</th>
+                                <th>{{translate('bookings')}}</th>
+                                <th>{{translate('total_spent')}}</th>
+                                <th>{{translate('refunds')}}</th>
+                                <th>{{translate('discounts')}}</th>
+                                <th>{{translate('wallet')}}</th>
+                                <th>{{translate('last_booking')}}</th>
+                                <th>{{translate('status')}}</th>
+                                <th>{{translate('Action')}}</th>
                             </tr>
                             </thead>
                             <tbody>
-                            @forelse($customers as $key=>$customer)
+                            @forelse($customers as $customer)
                                 <tr>
-                                    <td>{{$customers->firstitem()+$key}}</td>
                                     <td>
-                                        <div class="media align-items-center gap-3">
-                                            <div class="avatar avatar-lg">
-                                                <a href="{{route('admin.customer.detail',[$customer->id, 'web_page'=>'overview'])}}">
-                                                    <img class="avatar-img radius-5"
-                                                         src="{{asset('storage/app/public/user/profile_image')}}/{{$customer->profile_image}}"
-                                                         onerror="this.src='{{asset('assets/admin-module')}}/img/placeholder.png'"
-                                                         alt="">
-                                                </a>
-                                            </div>
-                                            <div class="media-body">
-                                                <h5>
-                                                    <a href="{{route('admin.customer.detail',[$customer->id, 'web_page'=>'overview'])}}">
-                                                        {{$customer['first_name'].' '.$customer['last_name']}}
-                                                    </a>
-                                                </h5>
-                                            </div>
-                                        </div>
+                                        <a href="{{route('admin.analytics.search.customer.show', $customer->id)}}">
+                                            {{$customer['first_name'].' '.$customer['last_name']}}
+                                        </a>
+                                        <div class="fz-12 text-muted">{{$customer->email}} {{$customer->phone}}</div>
                                     </td>
-                                    <td>{{$customer->total_volume??0}}</td>
-                                    <td>{{$customer->total_response_data_count??0}}</td>
-                                    <td>{{$customer->total_visited_service_count??0}}</td>
-                                    <td>{{$customer->total_added_to_cart_count??0}}</td>
                                     <td>{{$customer->bookings_count??0}}</td>
+                                    <td>{{with_currency_symbol($customer->total_spent ?? 0)}}</td>
+                                    <td>{{with_currency_symbol($customer->total_refunds ?? 0)}}</td>
+                                    <td>{{with_currency_symbol($customer->total_discounts ?? 0)}}</td>
+                                    <td>{{with_currency_symbol(optional($customer->account)->received_balance ?? $customer->wallet_balance ?? 0)}}</td>
+                                    <td>{{$customer->last_booking_at ?? '-'}}</td>
+                                    <td>{{$customer->is_active ? translate('active') : translate('inactive')}}</td>
                                     <td>
-                                        <div class="table-actions d-flex justify-content-center">
-                                            <a href="{{route('admin.customer.detail',[$customer->id, 'web_page'=>'overview'])}}" type="button" class="table-actions_view">
-                                                <span class="material-icons">visibility</span>
-                                            </a>
-                                        </div>
+                                        <a href="{{route('admin.analytics.search.customer.show', $customer->id)}}" class="btn btn--light-primary px-3">
+                                            <span class="material-icons m-0">visibility</span>
+                                        </a>
                                     </td>
                                 </tr>
                             @empty
-                                <tr class="text-center"><td colspan="8">{{translate('No_data_available')}}</td></tr>
+                                <tr class="text-center"><td colspan="9">{{translate('No_data_available')}}</td></tr>
                             @endforelse
                             </tbody>
                         </table>

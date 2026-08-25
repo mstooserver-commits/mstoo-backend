@@ -64,10 +64,8 @@ class EmployeeController extends Controller
             ->when($search !== '', function ($query) use ($search) {
                 $term = str_replace(['%', '_'], ['\%', '\_'], $search);
                 $like = '%' . $term . '%';
-                $query->where(function ($query) use ($like, $term) {
-                    $query->where('first_name', 'LIKE', $like)
-                        ->orWhere('last_name', 'LIKE', $like)
-                        ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$like])
+                $query->where(function ($query) use ($like, $term, $search) {
+                    $query->whereNameLike($search)
                         ->orWhere('phone', 'LIKE', $like)
                         ->orWhere('email', 'LIKE', $like)
                         ->orWhere('id', $term);
@@ -107,7 +105,7 @@ class EmployeeController extends Controller
             'phone' => 'required|unique:users,phone',
             'password' => mstoo_password_rules() . '|confirmed',
             'profile_image' => 'nullable|image|mimes:jpeg,jpg,png,gif|max:10000',
-            'identity_type' => 'nullable|in:passport,driving_license,nid,trade_license,company_id',
+            'identity_type' => 'nullable|in:passport,driving_license,driving_licence,nid,trade_license,company_id',
             'identity_number' => 'nullable|string|max:100',
             'identity_images' => 'nullable|array',
             'identity_images.*' => 'image|mimes:jpeg,jpg,png,gif|max:10000',
@@ -138,42 +136,52 @@ class EmployeeController extends Controller
             $extra = $this->safeExtraPermissions($request->input('extra_permissions', []), $role);
         }
 
-        DB::transaction(function () use ($request, $identityImages, $extra) {
-            $employee = new User();
-            $employee->first_name = $request->first_name;
-            $employee->last_name = $request->last_name;
-            $employee->email = $request->email;
-            $employee->phone = $request->phone;
-            $employee->profile_image = $request->hasFile('profile_image')
-                ? file_uploader('employee/profile/', 'png', $request->file('profile_image'))
-                : 'def.png';
-            $employee->identification_number = $request->identity_number;
-            $employee->identification_type = $request->identity_type;
-            $employee->identification_image = $identityImages;
-            $employee->password = bcrypt($request->password);
-            $employee->user_type = 'admin-employee';
-            $employee->is_active = $request->boolean('is_active', true) ? 1 : 0;
-            $employee->extra_permissions = $extra;
-            $employee->save();
+        try {
+            DB::transaction(function () use ($request, $identityImages, $extra) {
+                $employee = new User();
+                $employee->first_name = $request->first_name;
+                $employee->last_name = $request->last_name;
+                $employee->email = $request->email;
+                $employee->phone = $request->phone;
+                $employee->profile_image = $request->hasFile('profile_image')
+                    ? file_uploader('employee/profile/', 'png', $request->file('profile_image'))
+                    : 'def.png';
+                $employee->identification_number = $request->identity_number;
+                $employee->identification_type = $request->identity_type ?: 'nid';
+                if (!empty($identityImages)) {
+                    $employee->identification_image = $identityImages;
+                }
+                $employee->password = bcrypt($request->password);
+                $employee->user_type = 'admin-employee';
+                $employee->is_active = filter_var($request->input('is_active', 1), FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+                if (User::hasUsersColumn('extra_permissions')) {
+                    $employee->extra_permissions = $extra;
+                }
+                $employee->save();
 
-            $employee->roles()->sync([$request['role_id']]);
-            if ($request->filled('zone_ids')) {
-                $employee->zones()->sync($request['zone_ids']);
-            }
+                $employee->roles()->sync([$request['role_id']]);
+                if ($request->filled('zone_ids')) {
+                    $employee->zones()->sync($request['zone_ids']);
+                }
 
-            if ($request->filled('address')) {
-                $address = new UserAddress();
-                $address->user_id = $employee->id;
-                $address->address = $request->address;
-                $address->save();
-            }
+                if ($request->filled('address')) {
+                    $address = new UserAddress();
+                    $address->user_id = $employee->id;
+                    $address->address = $request->address;
+                    $address->save();
+                }
 
-            admin_audit('employee.created', $employee, [
-                'email' => $employee->email,
-                'role_id' => $request['role_id'],
-                'is_active' => $employee->is_active,
-            ]);
-        });
+                admin_audit('employee.created', $employee, [
+                    'email' => $employee->email,
+                    'role_id' => $request['role_id'],
+                    'is_active' => $employee->is_active,
+                ]);
+            });
+        } catch (\Throwable $exception) {
+            report($exception);
+            Toastr::error(translate('employee_could_not_be_saved') . ': ' . $exception->getMessage());
+            return back()->withInput();
+        }
 
         Toastr::success(DEFAULT_STORE_200['message']);
         return redirect()->route('admin.employee.index');
@@ -255,7 +263,8 @@ class EmployeeController extends Controller
         $previousRoleId = $currentRole->id ?? null;
         $previousStatus = $employee->is_active;
 
-        DB::transaction(function () use ($id, $employee, $request, $role) {
+        try {
+            DB::transaction(function () use ($id, $employee, $request, $role) {
             $employee->first_name = $request->first_name;
             $employee->last_name = $request->last_name;
             $employee->email = $request->email;
@@ -274,9 +283,9 @@ class EmployeeController extends Controller
             }
             $employee->user_type = 'admin-employee';
             if ($request->has('is_active')) {
-                $employee->is_active = $request->boolean('is_active') ? 1 : 0;
+                $employee->is_active = filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
             }
-            if (access_checker('employee_management', 'manage_roles')) {
+            if (access_checker('employee_management', 'manage_roles') && User::hasUsersColumn('extra_permissions')) {
                 $employee->extra_permissions = $this->safeExtraPermissions($request->input('extra_permissions', []), $role);
             }
             $employee->save();
@@ -299,6 +308,11 @@ class EmployeeController extends Controller
                 }
             }
         });
+        } catch (\Throwable $exception) {
+            report($exception);
+            Toastr::error(translate('employee_could_not_be_saved') . ': ' . $exception->getMessage());
+            return back()->withInput();
+        }
 
         admin_audit('employee.updated', $employee, [
             'email' => $employee->email,

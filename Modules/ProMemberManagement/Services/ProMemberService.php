@@ -376,34 +376,53 @@ class ProMemberService
 
     public function publicConfig(?string $userId = null): array
     {
-        $config = $this->config();
-        $membership = $userId ? $this->activeMembership($userId) : null;
+        try {
+            $config = $this->config();
+            $membership = $userId ? $this->activeMembership($userId) : null;
 
-        return [
-            'enabled' => (int)$config['enabled'],
-            'purchase_enabled' => (int)($config['additional']['purchase_enabled'] ?? 1),
-            'is_pro_member' => $membership ? 1 : 0,
-            'membership' => $membership ? [
-                'id' => $membership->id,
-                'status' => $membership->status,
-                'plan_name' => $membership->plan->name ?? null,
-                'starts_at' => optional($membership->starts_at)->toIso8601String(),
-                'expires_at' => optional($membership->expires_at)->toIso8601String(),
-            ] : null,
-            'benefits' => [
-                'discount' => [
-                    'enabled' => (int)$config['benefits']['discount']['enabled'],
-                    'percent' => (float)$config['benefits']['discount']['percent'],
-                    'max_amount' => (float)$config['benefits']['discount']['max_amount'],
-                    'min_order' => (float)$config['benefits']['discount']['min_order'],
+            return [
+                'enabled' => (int) ($config['enabled'] ?? 0),
+                'purchase_enabled' => (int) ($config['additional']['purchase_enabled'] ?? 1),
+                'is_pro_member' => $membership ? 1 : 0,
+                'membership' => $membership ? [
+                    'id' => $membership->id,
+                    'status' => $membership->status,
+                    'plan_name' => $membership->plan->name ?? null,
+                    'starts_at' => optional($membership->starts_at)->toIso8601String(),
+                    'expires_at' => optional($membership->expires_at)->toIso8601String(),
+                ] : null,
+                'benefits' => [
+                    'discount' => [
+                        'enabled' => (int) ($config['benefits']['discount']['enabled'] ?? 0),
+                        'percent' => (float) ($config['benefits']['discount']['percent'] ?? 0),
+                        'max_amount' => (float) ($config['benefits']['discount']['max_amount'] ?? 0),
+                        'min_order' => (float) ($config['benefits']['discount']['min_order'] ?? 0),
+                    ],
+                    'coupon' => ['enabled' => (int) ($config['benefits']['coupon']['enabled'] ?? 0)],
+                    'service_fee' => ['enabled' => (int) ($config['benefits']['service_fee']['enabled'] ?? 0)],
                 ],
-                'coupon' => ['enabled' => (int)$config['benefits']['coupon']['enabled']],
-                'service_fee' => ['enabled' => (int)$config['benefits']['service_fee']['enabled']],
-            ],
-            'default_service_fee' => (float)$config['additional']['default_service_fee'],
-            'currency_code' => currency_code(),
-            'currency_symbol' => currency_symbol(),
-        ];
+                'default_service_fee' => (float) ($config['additional']['default_service_fee'] ?? 0),
+                'currency_code' => currency_code(),
+                'currency_symbol' => currency_symbol(),
+            ];
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return [
+                'enabled' => 0,
+                'purchase_enabled' => 0,
+                'is_pro_member' => 0,
+                'membership' => null,
+                'benefits' => [
+                    'discount' => ['enabled' => 0, 'percent' => 0, 'max_amount' => 0, 'min_order' => 0],
+                    'coupon' => ['enabled' => 0],
+                    'service_fee' => ['enabled' => 0],
+                ],
+                'default_service_fee' => 0,
+                'currency_code' => 'INR',
+                'currency_symbol' => '₹',
+            ];
+        }
     }
 
     public function notify(?User $user, string $event, ProMembership $membership): void

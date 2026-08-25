@@ -58,6 +58,7 @@ class ProviderReportController extends Controller
      */
     public function get_provider_report(Request $request): Renderable
     {
+        abort_unless(can_view_report('provider_report'), 403);
         Validator::make($request->all(), [
             'zone_ids' => 'array',
             'zone_ids.*' => 'uuid',
@@ -180,7 +181,13 @@ class ProviderReportController extends Controller
             })
             ->latest()->paginate(pagination_limit())->appends($query_params);
 
-        return view('adminmodule::admin.report.provider', compact('zones', 'providers', 'sub_categories', 'search', 'filtered_providers', 'query_params'));
+        $analytics = app(\Modules\AdminModule\Services\AnalyticsReportService::class);
+        $summary = $analytics->providerSummary($request);
+        $performance = $analytics->providerPerformance($request);
+        $dropdowns = $analytics->dropdowns();
+        $filters = $request->query();
+
+        return view('adminmodule::admin.report.provider', compact('zones', 'providers', 'sub_categories', 'search', 'filtered_providers', 'query_params', 'summary', 'performance', 'dropdowns', 'filters'));
     }
 
     /**
@@ -194,6 +201,7 @@ class ProviderReportController extends Controller
      */
     public function get_provider_report_download(Request $request): string|StreamedResponse
     {
+        abort_unless(can_export_report(), 403);
         Validator::make($request->all(), [
             'zone_ids' => 'array',
             'zone_ids.*' => 'uuid',

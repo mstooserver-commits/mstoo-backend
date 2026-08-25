@@ -104,10 +104,16 @@ if (!function_exists('system_permission_catalog')) {
                 ],
             ],
             'report_management' => [
-                'description' => 'View and export operational reports.',
+                'description' => 'View and export operational reports and analytics.',
                 'actions' => [
                     'view' => 'View Reports',
                     'export' => 'Export Reports',
+                    'transaction_report' => 'View Transaction Reports',
+                    'business_report' => 'View Business Reports',
+                    'booking_report' => 'View Booking Reports',
+                    'provider_report' => 'View Provider Reports',
+                    'keyword_analytics' => 'View Keyword Search Analytics',
+                    'customer_analytics' => 'View Customer Search Analytics',
                 ],
             ],
             'system_management' => [
@@ -193,6 +199,12 @@ if (!function_exists('legacy_action_allowed')) {
             'view_transactions' => (bool)$role->read,
             'manage_wallet' => (bool)$role->update,
             'manage_backup' => (bool)$role->update,
+            'transaction_report' => (bool)$role->read,
+            'business_report' => (bool)$role->read,
+            'booking_report' => (bool)$role->read,
+            'provider_report' => (bool)$role->read,
+            'keyword_analytics' => (bool)$role->read,
+            'customer_analytics' => (bool)$role->read,
         ];
 
         return $map[$action] ?? (bool)$role->read;
@@ -283,6 +295,24 @@ if (!function_exists('access_checker')) {
 
         $key = $module . '.' . $action;
         return in_array($key, current_admin_permissions(), true);
+    }
+}
+
+if (!function_exists('can_view_report')) {
+    function can_view_report(string $action = 'view'): bool
+    {
+        if (access_checker('report_management', 'view')) {
+            return true;
+        }
+
+        return access_checker('report_management', $action);
+    }
+}
+
+if (!function_exists('can_export_report')) {
+    function can_export_report(): bool
+    {
+        return access_checker('report_management', 'export') || access_checker('report_management', 'view');
     }
 }
 

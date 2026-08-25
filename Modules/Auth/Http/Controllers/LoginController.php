@@ -181,7 +181,7 @@ class LoginController extends Controller
         }
 
         //not active
-        if (!$user->is_active || !$user->provider->is_approved || !$user->provider->is_active) {
+        if (!$user->is_active || !$user->provider || !$user->provider->is_approved || !$user->provider->is_active) {
             self::update_user_hit_count($user);
             Toastr::error(ACCOUNT_DISABLED['message']);
             return redirect(route('provider.auth.login'));
@@ -223,8 +223,10 @@ class LoginController extends Controller
         $validator = Validator::make($request->all(), $this->validation_array);
         if ($validator->fails()) return response()->json(response_formatter(AUTH_LOGIN_403, null, error_processor($validator)), 403);
 
-        $user = $this->user->where(['phone' => $request['email_or_phone']])
-            ->orWhere('email', $request['email_or_phone'])
+        $user = $this->user->where(function ($query) use ($request) {
+                $query->where('phone', $request['email_or_phone'])
+                    ->orWhere('email', $request['email_or_phone']);
+            })
             ->ofType(CUSTOMER_USER_TYPES)
             ->first();
 
@@ -350,6 +352,8 @@ class LoginController extends Controller
         if(auth()->user()) {
             $redirect_route = in_array(auth()->user()->user_type, ADMIN_USER_TYPES) ? 'admin.auth.login' : 'provider.auth.login';
             auth()->guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
             return redirect()->route($redirect_route);
         }
         return redirect()->back();

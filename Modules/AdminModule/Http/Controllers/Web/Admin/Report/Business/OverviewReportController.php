@@ -53,6 +53,7 @@ class OverviewReportController extends Controller
      */
     public function get_business_overview_report(Request $request)
     {
+        abort_unless(can_view_report('business_report'), 403);
         Validator::make($request->all(), [
             'zone_ids' => 'array',
             'zone_ids.*' => 'uuid',
@@ -301,11 +302,18 @@ class OverviewReportController extends Controller
             }
         }
 
-        return view('adminmodule::admin.report.business.overview', compact('zones', 'categories', 'sub_categories', 'amounts', 'chart_data', 'total_promotional_cost', 'deterministic', 'query_params'));
+        $analytics = app(\Modules\AdminModule\Services\AnalyticsReportService::class);
+        $summary = $analytics->businessSummary($request);
+        $breakdowns = $analytics->businessBreakdowns($request);
+        $dropdowns = $analytics->dropdowns();
+        $filters = $request->query();
+
+        return view('adminmodule::admin.report.business.overview', compact('zones', 'categories', 'sub_categories', 'amounts', 'chart_data', 'total_promotional_cost', 'deterministic', 'query_params', 'summary', 'breakdowns', 'dropdowns', 'filters'));
     }
 
     public function get_business_overview_report_download(Request $request)
     {
+        abort_unless(can_export_report(), 403);
         Validator::make($request->all(), [
             'zone_ids' => 'array',
             'zone_ids.*' => 'uuid',

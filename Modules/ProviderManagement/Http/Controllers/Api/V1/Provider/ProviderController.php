@@ -346,33 +346,36 @@ class ProviderController extends Controller
     public function config(Request $request): JsonResponse
     {
         $location = Location::get($request->ip());
+        $lat = is_object($location) ? ($location->latitude ?? 0) : 0;
+        $lon = is_object($location) ? ($location->longitude ?? 0) : 0;
+        $terms = business_config('terms_and_conditions', 'pages_setup');
+        $refund = business_config('refund_policy', 'pages_setup');
+        $cancel = business_config('cancellation_policy', 'pages_setup');
         return response()->json(response_formatter(DEFAULT_200, [
-            'provider_can_cancel_booking' => (business_config('provider_can_cancel_booking', 'service_setup'))->live_values ?? null,
-            'currency_symbol_position' => (business_config('currency_symbol_position', 'business_information'))->live_values ?? null,
-            'provider_self_registration' => (business_config('provider_self_registration', 'service_setup'))->live_values ?? null,
-            'business_name' => (business_config('business_name', 'business_information'))->live_values ?? null,
-            'logo' => (business_config('business_logo', 'business_information'))->live_values ?? null,
-            'country_code' => (business_config('country_code', 'business_information'))->live_values ?? null,
-            'business_address' => (business_config('business_address', 'business_information'))->live_values ?? null,
-            'business_phone' => (business_config('business_phone', 'business_information'))->live_values ?? null,
-            'business_email' => (business_config('business_email', 'business_information'))->live_values ?? null,
+            'provider_can_cancel_booking' => settings_live('provider_can_cancel_booking', 'service_setup'),
+            'currency_symbol_position' => settings_live('currency_symbol_position', 'business_information'),
+            'provider_self_registration' => settings_live('provider_self_registration', 'service_setup'),
+            'business_name' => settings_live('business_name', 'business_information'),
+            'logo' => settings_live('business_logo', 'business_information'),
+            'country_code' => settings_live('country_code', 'business_information'),
+            'business_address' => settings_live('business_address', 'business_information'),
+            'business_phone' => settings_live('business_phone', 'business_information'),
+            'business_email' => settings_live('business_email', 'business_information'),
             'base_url' => 'https://api.mstoo.co.in/api/v1/',
-            'currency_decimal_point' => (business_config('currency_decimal_point', 'business_information'))->live_values ?? null,
-            'currency_code' => (business_config('currency_code', 'business_information'))->live_values ?? null,
+            'currency_decimal_point' => settings_live('currency_decimal_point', 'business_information'),
+            'currency_code' => currency_code(),
             'about_us' => route('about-us'),
             'privacy_policy' => route('privacy-policy'),
-            'terms_and_conditions' => (business_config('terms_and_conditions', 'pages_setup'))->is_active ? route('terms-and-conditions') : "",
-            'refund_policy' => (business_config('refund_policy', 'pages_setup'))->is_active ? route('refund-policy') : "",
-            'cancellation_policy' => (business_config('cancellation_policy', 'pages_setup'))->is_active ? route('cancellation-policy') : "",
+            'terms_and_conditions' => ($terms?->is_active ?? 0) ? route('terms-and-conditions') : '',
+            'refund_policy' => ($refund?->is_active ?? 0) ? route('refund-policy') : '',
+            'cancellation_policy' => ($cancel?->is_active ?? 0) ? route('cancellation-policy') : '',
             'default_location' => ['default' => [
-                'lat' => $location->latitude,
-                'lon' => $location->longitude
+                'lat' => $lat,
+                'lon' => $lon,
             ]],
-            'user_location_info' => $location,
+            'user_location_info' => $location ?: null,
             'app_url_android' => '',
             'app_url_ios' => '',
-            //'sms_verification' => (business_config('sms_verification', 'service_setup'))->live_values ?? null,
-            //'email_verification' => (business_config('email_verification', 'service_setup'))->live_values ?? null,
             'map_api_key' => $this->google_map,
             'image_base_url' => asset('storage/app/public'),
             'pagination_limit' => (int) pagination_limit(),
@@ -380,20 +383,26 @@ class ProviderController extends Controller
             'currencies' => CURRENCIES,
             'countries' => COUNTRIES,
             'time_zones' => DateTimeZone::listIdentifiers(),
-            'recaptcha' => (business_config('recaptcha', 'third_party'))->live_values ?? null,
-            'default_commission' => (business_config('default_commission', 'business_information'))->live_values,
+            'recaptcha' => settings_live('recaptcha', 'third_party'),
+            'default_commission' => settings_live('default_commission', 'business_information'),
             'admin_details' => User::select('id', 'first_name', 'last_name', 'profile_image')->where('user_type', ADMIN_USER_TYPES[0])->first(),
-            'footer_text' => (business_config('footer_text', 'business_information'))->live_values ?? null,
-            'min_versions' => json_decode((business_config('provider_app_settings', 'app_settings'))->live_values ?? null),
-            'minimum_withdraw_amount' => business_config('minimum_withdraw_amount', 'business_information') ? ((float)(business_config('minimum_withdraw_amount', 'business_information'))->live_values ?? null) : null,
-            'maximum_withdraw_amount' => business_config('maximum_withdraw_amount', 'business_information') ? ((float)(business_config('maximum_withdraw_amount', 'business_information'))->live_values ?? null) : null,
-            'phone_number_visibility_for_chatting' => (int)((business_config('phone_number_visibility_for_chatting', 'business_information'))->live_values ?? 0),
-            'bid_offers_visibility_for_providers' => (int)((business_config('bid_offers_visibility_for_providers', 'bidding_system'))->live_values ?? 0),
-            'bidding_status' => (int)((business_config('bidding_status', 'bidding_system'))->live_values ?? 0),
-            'phone_verification' => (int)((business_config('phone_verification', 'service_setup'))->live_values ?? 0),
-            'email_verification' => (int)((business_config('email_verification', 'service_setup'))->live_values ?? 0),
-            'forget_password_verification_method' => (business_config('forget_password_verification_method', 'business_information'))->live_values ?? null,
-            'otp_resend_time' => (int) (business_config('otp_resend_time', 'otp_login_setup'))?->live_values ?? null,
+            'footer_text' => settings_live('footer_text', 'business_information'),
+            'min_versions' => is_string(settings_live('provider_app_settings', 'app_settings'))
+                ? json_decode(settings_live('provider_app_settings', 'app_settings'))
+                : settings_live('provider_app_settings', 'app_settings'),
+            'minimum_withdraw_amount' => settings_live('minimum_withdraw_amount', 'business_information') !== null
+                ? (float) settings_live('minimum_withdraw_amount', 'business_information')
+                : null,
+            'maximum_withdraw_amount' => settings_live('maximum_withdraw_amount', 'business_information') !== null
+                ? (float) settings_live('maximum_withdraw_amount', 'business_information')
+                : null,
+            'phone_number_visibility_for_chatting' => (int) settings_live('phone_number_visibility_for_chatting', 'business_information', 0),
+            'bid_offers_visibility_for_providers' => (int) settings_live('bid_offers_visibility_for_providers', 'bidding_system', 0),
+            'bidding_status' => (int) settings_live('bidding_status', 'bidding_system', 0),
+            'phone_verification' => (int) settings_live('phone_verification', 'service_setup', 0),
+            'email_verification' => (int) settings_live('email_verification', 'service_setup', 0),
+            'forget_password_verification_method' => settings_live('forget_password_verification_method', 'business_information'),
+            'otp_resend_time' => (int) settings_live('otp_resend_time', 'otp_login_setup'),
         ]), 200);
     }
 

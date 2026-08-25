@@ -32,6 +32,7 @@ class SearchController extends Controller
      */
     public function get_keyword_search_analytics(Request $request)
     {
+        abort_unless(can_view_report('keyword_analytics'), 403);
         Validator::make($request->all(), [
             'date_range' => 'in:all_time,this_week,last_week,this_month,last_month,last_15_days,this_year,last_year,last_6_month,this_year_1st_quarter,this_year_2nd_quarter,this_year_3rd_quarter,this_year_4th_quarter',
             'date_range_2' => 'in:all_time,this_week,last_week,this_month,last_month,last_15_days,this_year,last_year,last_6_month,this_year_1st_quarter,this_year_2nd_quarter,this_year_3rd_quarter,this_year_4th_quarter',
@@ -194,7 +195,11 @@ class SearchController extends Controller
             ->groupBy('searched_data.attribute_id', 'recent_searches.keyword')
             ->paginate(pagination_limit())->appends($query_params);
 
-        return view('adminmodule::admin.analytics.search.keyword', compact('query_params', 'graph_data', 'searches', 'search', 'zone_wise_volumes', 'total'));
+        $keywordStats = app(\Modules\AdminModule\Services\AnalyticsReportService::class)->keywordAnalytics($request);
+        $dropdowns = app(\Modules\AdminModule\Services\AnalyticsReportService::class)->dropdowns();
+        $filters = $request->query();
+
+        return view('adminmodule::admin.analytics.search.keyword', compact('query_params', 'graph_data', 'searches', 'search', 'zone_wise_volumes', 'total', 'keywordStats', 'dropdowns', 'filters'));
     }
 
     /**
@@ -203,6 +208,7 @@ class SearchController extends Controller
      */
     public function get_customer_search_analytics(Request $request)
     {
+        abort_unless(can_view_report('customer_analytics'), 403);
         Validator::make($request->all(), [
             'date_range' => 'in:all_time,this_week,last_week,this_month,last_month,last_15_days,this_year,last_year,last_6_month,this_year_1st_quarter,this_year_2nd_quarter,this_year_3rd_quarter,this_year_4th_quarter',
             'date_range_2' => 'in:all_time,this_week,last_week,this_month,last_month,last_15_days,this_year,last_year,last_6_month,this_year_1st_quarter,this_year_2nd_quarter,this_year_3rd_quarter,this_year_4th_quarter',
@@ -395,7 +401,27 @@ class SearchController extends Controller
             $customer->profile_image = User::find($customer->id)?->profile_image;
         }
 
-        return view('adminmodule::admin.analytics.search.customer', compact('query_params', 'top_customer', 'top_services', 'graph_data', 'customers', 'search', 'total'));
+        $dropdowns = app(\Modules\AdminModule\Services\AnalyticsReportService::class)->dropdowns();
+        $filters = $request->query();
+        $customers = app(\Modules\AdminModule\Services\AnalyticsReportService::class)
+            ->customerAnalyticsQuery($request)
+            ->paginate(pagination_limit())
+            ->appends($request->query());
+
+        return view('adminmodule::admin.analytics.search.customer', compact('query_params', 'top_customer', 'top_services', 'graph_data', 'customers', 'search', 'total', 'dropdowns', 'filters'));
     }
 
+    public function show_customer(Request $request, string $id)
+    {
+        abort_unless(can_view_report('customer_analytics'), 403);
+
+        $customer = User::query()
+            ->whereIn('user_type', defined('CUSTOMER_USER_TYPES') ? CUSTOMER_USER_TYPES : ['customer'])
+            ->with('account')
+            ->findOrFail($id);
+        $detail = app(\Modules\AdminModule\Services\AnalyticsReportService::class)->customerDetail($customer, $request);
+        $filters = $request->query();
+
+        return view('adminmodule::admin.analytics.search.customer-show', compact('customer', 'detail', 'filters'));
+    }
 }

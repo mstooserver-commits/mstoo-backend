@@ -53,23 +53,23 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::group(['prefix' => 'report', 'as' => 'report.', 'namespace' => 'Report', 'middleware' => ['mpc:report_management']], function () {
         //Transaction Report
-        Route::any('transaction', [TransactionReportController::class, 'get_transaction_report'])->name('transaction');
-        Route::any('transaction/download', [TransactionReportController::class, 'download_transaction_report'])->name('transaction.download');
+        Route::any('transaction', [TransactionReportController::class, 'get_transaction_report'])->name('transaction')->middleware('mpc:report_management,transaction_report');
+        Route::any('transaction/download', [TransactionReportController::class, 'download_transaction_report'])->name('transaction.download')->middleware('mpc:report_management,export');
 
         //Booking Report
-        Route::any('booking', [BookingReportController::class, 'get_booking_report'])->name('booking');
+        Route::any('booking', [BookingReportController::class, 'get_booking_report'])->name('booking')->middleware('mpc:report_management,booking_report');
         Route::get('service_reported', 'BookingReportController@service_reported')->name('service_reported');
 
         
-        Route::any('booking/download', [BookingReportController::class, 'get_booking_report_download'])->name('booking.download');
+        Route::any('booking/download', [BookingReportController::class, 'get_booking_report_download'])->name('booking.download')->middleware('mpc:report_management,export');
 
         //Provider Report
-        Route::any('provider', [ProviderReportController::class, 'get_provider_report'])->name('provider');
-        Route::any('provider/download', [ProviderReportController::class, 'get_provider_report_download'])->name('provider.download');
+        Route::any('provider', [ProviderReportController::class, 'get_provider_report'])->name('provider')->middleware('mpc:report_management,provider_report');
+        Route::any('provider/download', [ProviderReportController::class, 'get_provider_report_download'])->name('provider.download')->middleware('mpc:report_management,export');
 
         //Business Report
         Route::group(['prefix' => 'business', 'as' => 'business.'], function () {
-            Route::any('overview', [OverviewReportController::class, 'get_business_overview_report'])->name('overview');
+            Route::any('overview', [OverviewReportController::class, 'get_business_overview_report'])->name('overview')->middleware('mpc:report_management,business_report');
             Route::any('overview/download', [OverviewReportController::class, 'get_business_overview_report_download'])->name('overview.download');
             Route::any('earning', [EarningReportController::class, 'get_business_earning_report'])->name('earning');
             Route::any('earning/download', [EarningReportController::class, 'get_business_earning_report_download'])->name('earning.download');
@@ -82,8 +82,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
         //Search analytics
         Route::group(['prefix' => 'search', 'as' => 'search.'], function () {
-            Route::any('keyword', [SearchController::class, 'get_keyword_search_analytics'])->name('keyword');
-            Route::any('customer', [SearchController::class, 'get_customer_search_analytics'])->name('customer');
+            Route::any('keyword', [SearchController::class, 'get_keyword_search_analytics'])->name('keyword')->middleware('mpc:report_management,keyword_analytics');
+            Route::any('customer', [SearchController::class, 'get_customer_search_analytics'])->name('customer')->middleware('mpc:report_management,customer_analytics');
+            Route::get('customer/{id}', [SearchController::class, 'show_customer'])->name('customer.show')->middleware('mpc:report_management,customer_analytics');
         });
     });
 

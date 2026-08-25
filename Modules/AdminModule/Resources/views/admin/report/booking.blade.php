@@ -11,11 +11,59 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <div class="page-title-wrap mb-3">
+                    <div class="page-title-wrap mb-3 d-flex justify-content-between align-items-center">
                         <h2 class="page-title">{{translate('Booking_Reports')}}</h2>
+                        @if(can_export_report())
+                            <a class="btn btn--secondary" href="{{route('admin.report.booking.download', request()->query())}}">{{translate('export')}}</a>
+                        @endif
                     </div>
+                    @isset($summary)
+                    <div class="row g-3 mb-3">
+                        @foreach([
+                            ['Total', $summary['total'] ?? 0],
+                            ['Completed', $summary['completed'] ?? 0],
+                            ['Pending', $summary['pending'] ?? 0],
+                            ['Accepted', $summary['accepted'] ?? 0],
+                            ['Cancelled', $summary['canceled'] ?? 0],
+                            ['Rejected', $summary['rejected'] ?? 0],
+                            ['Revenue', with_currency_symbol($summary['revenue'] ?? 0)],
+                            ['Provider earnings', with_currency_symbol($summary['provider_earnings'] ?? 0)],
+                            ['Commission', with_currency_symbol($summary['admin_commission'] ?? 0)],
+                            ['Refunds', with_currency_symbol($summary['refund'] ?? 0)],
+                        ] as $card)
+                            <div class="col-xl-3 col-sm-6"><div class="mstoo-kpi"><div class="kpi-label">{{$card[0]}}</div><div class="kpi-value">{{$card[1]}}</div></div></div>
+                        @endforeach
+                    </div>
+                    @endisset
+                    @isset($charts)
+                    <div class="row g-3 mb-3">
+                        <div class="col-lg-8">
+                            <div class="card"><div class="card-body">
+                                <h5>{{translate('bookings_over_time')}}</h5>
+                                <div id="booking-volume-chart"></div>
+                            </div></div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card"><div class="card-body">
+                                <h5>{{translate('booking_status')}}</h5>
+                                <div id="booking-status-chart"></div>
+                            </div></div>
+                        </div>
+                    </div>
+                    @endisset
+                    @include('adminmodule::admin.report.partials._filters', [
+                        'action' => route('admin.report.booking'),
+                        'filters' => $filters ?? $query_params,
+                        'dropdowns' => $dropdowns ?? ['zones' => $zones, 'providers' => $providers, 'categories' => $categories, 'services' => collect()],
+                        'showZones' => true,
+                        'showProviders' => true,
+                        'showCategories' => true,
+                        'showStatus' => true,
+                        'statusName' => 'booking_status',
+                        'statuses' => collect(defined('BOOKING_STATUSES') ? BOOKING_STATUSES : [])->pluck('key')->all() ?: ['pending','accepted','ongoing','completed','canceled'],
+                        'showGranularity' => true,
+                    ])
 
-                    <div class="card d-none">
                         <div class="card-body">
                             <div class="mb-3 fz-16">{{translate('Search_Data')}}</div>
 
@@ -212,10 +260,15 @@
                                             <th>{{translate('Booking_ID')}}</th>
                                             <th>{{translate('Customer_Info')}}</th>
                                             <th>{{translate('Provider_Info')}}</th>
+                                            <th>{{translate('service')}}</th>
+                                            <th>{{translate('category')}}</th>
+                                            <th>{{translate('zone')}}</th>
                                             <th>{{translate('Booking_Amount')}}</th>
-                                            <!-- <th>{{translate('Service_Discount')}}</th> -->
-                                            <!-- <th>{{translate('Coupon_Discount')}}</th> -->
-                                            <!-- <th>{{translate('VAT_/_Tax')}}</th> -->
+                                            <th>{{translate('commission')}}</th>
+                                            <th>{{translate('provider_earning')}}</th>
+                                            <th>{{translate('status')}}</th>
+                                            <th>{{translate('payment_status')}}</th>
+                                            <th>{{translate('booking_date')}}</th>
                                             <th>{{translate('Action')}}</th>
                                         </tr>
                                     </thead>
@@ -241,18 +294,23 @@
                                                 @endif
                                             </td>
                                             <td>
-                                                @if(isset($booking->provider) && isset($booking->provider->owner))
+                                                @if(isset($booking->provider))
                                                     <div class="fw-medium">
-                                                        <a href="{{route('admin.provider.details',[$booking->provider->id, 'web_page'=>'overview'])}}">
-                                                            {{$booking->provider->company_name}}
-                                                        </a>
+                                                        {{$booking->provider->company_name ?? trim(($booking->provider->first_name ?? '').' '.($booking->provider->last_name ?? ''))}}
                                                     </div>
-                                                    <a class="fz-12" href="tel:{{$booking->provider->company_phone??''}}">{{$booking->provider->company_phone??''}}</a>
                                                 @else
                                                     <div class="fw-medium badge badge badge-danger radius-50">{{translate('Provider_not_available')}}</div>
                                                 @endif
                                             </td>
+                                            <td>{{optional(optional($booking->detail->first())->service)->name ?? '-'}}</td>
+                                            <td>{{$booking->category_id ? (optional($categories->firstWhere('id', $booking->category_id))->name ?? '-') : '-'}}</td>
+                                            <td>{{optional($booking->zone)->name ?? '-'}}</td>
                                             <td>{{with_currency_symbol($booking['total_booking_amount'])}}</td>
+                                            <td>{{with_currency_symbol(optional($booking->details_amounts)->sum('admin_commission'))}}</td>
+                                            <td>{{with_currency_symbol(optional($booking->details_amounts)->sum('provider_earning'))}}</td>
+                                            <td>{{translate($booking->booking_status)}}</td>
+                                            <td>{{$booking->is_paid ? translate('paid') : translate('unpaid')}}</td>
+                                            <td>{{optional($booking->created_at)->format('Y-m-d H:i')}}</td>
                                             <!-- <td>
                                                 @if($booking['total_campaign_discount_amount'] > $booking['total_discount_amount'])
                                                     {{with_currency_symbol($booking['total_campaign_discount_amount'])}}
@@ -388,5 +446,27 @@
 
         var chart = new ApexCharts(document.querySelector("#apex_column-chart"), options);
         chart.render();
+        @isset($charts)
+        if (window.ApexCharts) {
+            if (document.querySelector('#booking-volume-chart')) {
+                new ApexCharts(document.querySelector('#booking-volume-chart'), {
+                    chart: { type: 'line', height: 300, toolbar: { show: false } },
+                    series: [
+                        { name: 'Bookings', data: @json($charts['volume'] ?? []) },
+                        { name: 'Revenue', data: @json($charts['revenue'] ?? []) },
+                        { name: 'Cancelled', data: @json($charts['canceled'] ?? []) }
+                    ],
+                    xaxis: { categories: @json($charts['timeline'] ?? []) }
+                }).render();
+            }
+            if (document.querySelector('#booking-status-chart')) {
+                new ApexCharts(document.querySelector('#booking-status-chart'), {
+                    chart: { type: 'donut', height: 300 },
+                    series: @json($charts['status']['series'] ?? []),
+                    labels: @json($charts['status']['labels'] ?? [])
+                }).render();
+            }
+        }
+        @endisset
 </script>
 @endpush

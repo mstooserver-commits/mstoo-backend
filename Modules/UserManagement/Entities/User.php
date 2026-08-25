@@ -130,12 +130,57 @@ class User extends Authenticatable
 
     public function recordLastLogin(): void
     {
-        if (!Schema::hasColumn($this->getTable(), 'last_login_at')) {
+        if (!self::hasUsersColumn('last_login_at')) {
             return;
         }
 
         $this->last_login_at = now();
-        $this->save();
+        try {
+            $this->save();
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    public function displayName(): string
+    {
+        return trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+    }
+
+    public function scopeWhereNameLike($query, string $term)
+    {
+        $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $term);
+        $like = '%' . $escaped . '%';
+
+        return $query->where(function ($inner) use ($like) {
+            $inner->where('first_name', 'like', $like)
+                ->orWhere('last_name', 'like', $like)
+                ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", [$like]);
+        });
+    }
+
+    public static function hasUsersColumn(string $column): bool
+    {
+        static $cache = [];
+
+        if (!array_key_exists($column, $cache)) {
+            try {
+                $cache[$column] = Schema::hasColumn('users', $column);
+            } catch (\Throwable $exception) {
+                $cache[$column] = false;
+            }
+        }
+
+        return $cache[$column];
+    }
+
+    public function dropMissingOptionalColumns(): void
+    {
+        foreach (['extra_permissions', 'last_login_at', 'ref_code'] as $column) {
+            if (array_key_exists($column, $this->attributes) && !self::hasUsersColumn($column)) {
+                unset($this->attributes[$column]);
+            }
+        }
     }
 
     /*public function getIdentificationImageAttribute(string $value): mixed
@@ -147,14 +192,27 @@ class User extends Authenticatable
     {
         parent::boot();
 
+        self::saving(function ($model) {
+            $model->dropMissingOptionalColumns();
+        });
+
         self::creating(function ($model) {
-            $model->ref_code = generate_referer_code();
+            if (self::hasUsersColumn('ref_code') && empty($model->ref_code)) {
+                $model->ref_code = generate_referer_code();
+            }
         });
 
         self::created(function ($model) {
-            $account = new Account();
-            $account->user_id = $model->id;
-            $account->save();
+            try {
+                if (!Schema::hasTable('accounts')) {
+                    return;
+                }
+                $account = new Account();
+                $account->user_id = $model->id;
+                $account->save();
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
         });
 
         self::updating(function ($model) {

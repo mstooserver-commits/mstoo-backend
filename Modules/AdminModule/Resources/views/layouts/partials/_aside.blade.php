@@ -379,22 +379,78 @@
                 </li>
             @endif
 
-            @if(access_checker('report_management'))
-                <li class="nav-category">{{translate('report_management')}}</li>
-                <li class="has-sub-item {{request()->is('admin/report/*')?'sub-menu-opened':''}}">
-                    <a href="#" class="{{request()->is('admin/report/*')?'active-menu':''}}">
-                        <span class="material-icons" title="Reports">event_note</span>
-                        <span class="link-title">{{translate('Reports')}}</span>
-                    </a>
-                    <ul class="nav sub-menu">
-                        <li>
-                            <a href="{{route('admin.report.booking')}}"
-                               class="{{request()->is('admin/report/booking')?'active-menu':''}}">
-                                {{translate('booking')}}
-                            </a>
-                        </li>
-                    </ul>
-                </li>
+            @if(access_checker('transaction_management') || access_checker('report_management'))
+                <li class="nav-category">{{translate('transaction_reports_analytics')}}</li>
+                @if(access_checker('transaction_management'))
+                    <li>
+                        <a href="{{route('admin.transaction.list')}}" class="{{request()->is('admin/transaction/*')?'active-menu':''}}">
+                            <span class="material-icons" title="{{translate('all_transactions')}}">receipt_long</span>
+                            <span class="link-title">{{translate('all_transactions')}}</span>
+                        </a>
+                    </li>
+                @endif
+                @if(can_view_report('transaction_report') || can_view_report('business_report') || can_view_report('booking_report') || can_view_report('provider_report'))
+                    <li class="has-sub-item {{request()->is('admin/report/*')?'sub-menu-opened':''}}">
+                        <a href="#" class="{{request()->is('admin/report/*')?'active-menu':''}}">
+                            <span class="material-icons" title="{{translate('Reports')}}">event_note</span>
+                            <span class="link-title">{{translate('Reports')}}</span>
+                        </a>
+                        <ul class="nav sub-menu">
+                            @if(can_view_report('transaction_report'))
+                                <li>
+                                    <a href="{{route('admin.report.transaction')}}" class="{{request()->is('admin/report/transaction')?'active-menu':''}}">
+                                        {{translate('transaction_reports')}}
+                                    </a>
+                                </li>
+                            @endif
+                            @if(can_view_report('business_report'))
+                                <li>
+                                    <a href="{{route('admin.report.business.overview')}}" class="{{request()->is('admin/report/business*')?'active-menu':''}}">
+                                        {{translate('business_reports')}}
+                                    </a>
+                                </li>
+                            @endif
+                            @if(can_view_report('booking_report'))
+                                <li>
+                                    <a href="{{route('admin.report.booking')}}" class="{{request()->is('admin/report/booking')?'active-menu':''}}">
+                                        {{translate('booking_reports')}}
+                                    </a>
+                                </li>
+                            @endif
+                            @if(can_view_report('provider_report'))
+                                <li>
+                                    <a href="{{route('admin.report.provider')}}" class="{{request()->is('admin/report/provider')?'active-menu':''}}">
+                                        {{translate('provider_reports')}}
+                                    </a>
+                                </li>
+                            @endif
+                        </ul>
+                    </li>
+                @endif
+                @if(can_view_report('keyword_analytics') || can_view_report('customer_analytics'))
+                    <li class="has-sub-item {{request()->is('admin/analytics/*')?'sub-menu-opened':''}}">
+                        <a href="#" class="{{request()->is('admin/analytics/*')?'active-menu':''}}">
+                            <span class="material-icons" title="{{translate('Analytics')}}">analytics</span>
+                            <span class="link-title">{{translate('Analytics')}}</span>
+                        </a>
+                        <ul class="nav sub-menu">
+                            @if(can_view_report('keyword_analytics'))
+                                <li>
+                                    <a href="{{route('admin.analytics.search.keyword')}}" class="{{request()->is('admin/analytics/search/keyword')?'active-menu':''}}">
+                                        {{translate('keyword_search')}}
+                                    </a>
+                                </li>
+                            @endif
+                            @if(can_view_report('customer_analytics'))
+                                <li>
+                                    <a href="{{route('admin.analytics.search.customer')}}" class="{{request()->is('admin/analytics/search/customer*')?'active-menu':''}}">
+                                        {{translate('customer_search')}}
+                                    </a>
+                                </li>
+                            @endif
+                        </ul>
+                    </li>
+                @endif
             @endif
         </ul>
     </div>

@@ -20,7 +20,9 @@ Route::group(['prefix' => 'admin', 'as'=>'admin.', 'namespace' => 'Web\Admin','m
 
     Route::group(['prefix' => 'transaction', 'as'=>'transaction.', 'middleware' => ['mpc:transaction_management']], function () {
         Route::any('list', 'TransactionController@index')->name('list');
-        Route::any('download', 'TransactionController@download')->name('download');
+        Route::any('download', 'TransactionController@download')->name('download')->middleware('mpc:transaction_management,export');
+        Route::get('print/{id}', 'TransactionController@print')->name('print');
+        Route::get('show/{id}', 'TransactionController@show')->name('show');
     });
 
     Route::group(['prefix' => 'withdraw', 'as'=>'withdraw.'], function () {

@@ -10,9 +10,96 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <div class="page-title-wrap mb-3">
+                    <div class="page-title-wrap mb-3 d-flex justify-content-between align-items-center">
                         <h2 class="page-title">{{translate('Business_Reports')}}</h2>
+                        @if(can_export_report())
+                            <a class="btn btn--secondary" href="{{route('admin.report.business.overview.download', request()->query())}}">{{translate('export')}}</a>
+                        @endif
                     </div>
+                    @isset($summary)
+                    <div class="row g-3 mb-3">
+                        @foreach([
+                            ['Total bookings', $summary['total_bookings'] ?? 0],
+                            ['Customers', $summary['total_customers'] ?? 0],
+                            ['Providers', $summary['total_providers'] ?? 0],
+                            ['Gross revenue', with_currency_symbol($summary['gross_revenue'] ?? 0)],
+                            ['Net revenue', with_currency_symbol($summary['net_revenue'] ?? 0)],
+                            ['Commission', with_currency_symbol($summary['commission'] ?? 0)],
+                            ['Refunds', with_currency_symbol($summary['refunds'] ?? 0)],
+                            ['Discounts', with_currency_symbol($summary['discounts'] ?? 0)],
+                            ['Avg booking value', with_currency_symbol($summary['average_booking_value'] ?? 0)],
+                        ] as $card)
+                            <div class="col-xl-4 col-sm-6"><div class="mstoo-kpi"><div class="kpi-label">{{$card[0]}}</div><div class="kpi-value">{{$card[1]}}</div></div></div>
+                        @endforeach
+                    </div>
+                    @isset($summary['growth'])
+                    <div class="row g-3 mb-3">
+                        @foreach($summary['growth'] as $label => $pct)
+                            <div class="col-md-2 col-6"><div class="mstoo-kpi"><div class="kpi-label">{{translate($label)}} {{translate('growth')}}</div><div class="kpi-value">{{$pct}}%</div></div></div>
+                        @endforeach
+                    </div>
+                    @endisset
+                    @endisset
+                    @isset($breakdowns)
+                    <div class="row g-3 mb-3">
+                        <div class="col-lg-8">
+                            <div class="card"><div class="card-body">
+                                <h5>{{translate('revenue_over_time')}}</h5>
+                                <div id="biz-trend-chart"></div>
+                            </div></div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card"><div class="card-body">
+                                <h5>{{translate('revenue_by_category')}}</h5>
+                                <ul class="list-unstyled mb-0">
+                                    @foreach($breakdowns['by_category'] as $row)
+                                        <li class="d-flex justify-content-between py-1"><span>{{$row['name']}}</span><span>{{with_currency_symbol($row['revenue'])}}</span></li>
+                                    @endforeach
+                                </ul>
+                            </div></div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card"><div class="card-body">
+                                <h5>{{translate('revenue_by_zone')}}</h5>
+                                <ul class="list-unstyled mb-0">
+                                    @foreach($breakdowns['by_zone'] as $row)
+                                        <li class="d-flex justify-content-between py-1"><span>{{$row['name']}}</span><span>{{with_currency_symbol($row['revenue'])}}</span></li>
+                                    @endforeach
+                                </ul>
+                            </div></div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card"><div class="card-body">
+                                <h5>{{translate('revenue_by_provider')}}</h5>
+                                <ul class="list-unstyled mb-0">
+                                    @foreach($breakdowns['by_provider'] as $row)
+                                        <li class="d-flex justify-content-between py-1"><span>{{$row['name']}}</span><span>{{with_currency_symbol($row['revenue'])}}</span></li>
+                                    @endforeach
+                                </ul>
+                            </div></div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card"><div class="card-body">
+                                <h5>{{translate('revenue_by_payment_method')}}</h5>
+                                <ul class="list-unstyled mb-0">
+                                    @foreach($breakdowns['by_method'] as $row)
+                                        <li class="d-flex justify-content-between py-1"><span>{{$row->payment_method ?: translate('other')}}</span><span>{{with_currency_symbol($row->revenue)}}</span></li>
+                                    @endforeach
+                                </ul>
+                            </div></div>
+                        </div>
+                    </div>
+                    @endisset
+                    @include('adminmodule::admin.report.partials._filters', [
+                        'action' => route('admin.report.business.overview'),
+                        'filters' => $filters ?? $query_params,
+                        'dropdowns' => $dropdowns ?? ['zones' => $zones, 'providers' => collect(), 'categories' => $categories, 'services' => collect()],
+                        'showZones' => true,
+                        'showCategories' => true,
+                        'showProviders' => true,
+                        'showGranularity' => true,
+                    ])
+
 
                     <div class="mb-3">
                         <ul class="nav nav--tabs nav--tabs__style2">
@@ -362,5 +449,17 @@
 
         var chart = new ApexCharts(document.querySelector("#apex_line-chart"), options);
         chart.render();
+        @isset($breakdowns)
+        if (window.ApexCharts && document.querySelector('#biz-trend-chart')) {
+            new ApexCharts(document.querySelector('#biz-trend-chart'), {
+                chart: { type: 'area', height: 300, toolbar: { show: false } },
+                series: [
+                    { name: 'Revenue', data: @json(collect($breakdowns['trend'])->pluck('revenue')->map(fn ($v) => (float) $v)->values()) },
+                    { name: 'Bookings', data: @json(collect($breakdowns['trend'])->pluck('volume')->map(fn ($v) => (int) $v)->values()) }
+                ],
+                xaxis: { categories: @json(collect($breakdowns['trend'])->pluck('bucket')->values()) }
+            }).render();
+        }
+        @endisset
     </script>
 @endpush

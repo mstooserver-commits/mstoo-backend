@@ -2,27 +2,32 @@
 
 namespace App\Http\Middleware;
 
-use Illuminate\Http\Middleware\TrustProxies as Middleware;
+use Closure;
 use Illuminate\Http\Request;
 
-class TrustProxies extends Middleware
+class TrustProxies
 {
     /**
-     * The trusted proxies for this application.
+     * Laravel 8 does not ship Illuminate\Http\Middleware\TrustProxies.
+     * Trust proxy headers so scheme / host detection works behind nginx.
      *
-     * @var array<int, string>|string|null
+     * @param  Request  $request
+     * @param  Closure  $next
+     * @return mixed
      */
-    protected $proxies = '*';
+    public function handle($request, Closure $next)
+    {
+        $headers = Request::HEADER_X_FORWARDED_FOR
+            | Request::HEADER_X_FORWARDED_HOST
+            | Request::HEADER_X_FORWARDED_PORT
+            | Request::HEADER_X_FORWARDED_PROTO;
 
-    /**
-     * The headers that should be used to detect proxies.
-     *
-     * @var int
-     */
-    protected $headers =
-        Request::HEADER_X_FORWARDED_FOR |
-        Request::HEADER_X_FORWARDED_HOST |
-        Request::HEADER_X_FORWARDED_PORT |
-        Request::HEADER_X_FORWARDED_PROTO |
-        Request::HEADER_X_FORWARDED_AWS_ELB;
+        if (defined(Request::class . '::HEADER_X_FORWARDED_AWS_ELB')) {
+            $headers |= Request::HEADER_X_FORWARDED_AWS_ELB;
+        }
+
+        $request->setTrustedProxies(['0.0.0.0/0', '::/0'], $headers);
+
+        return $next($request);
+    }
 }

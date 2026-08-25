@@ -33,38 +33,77 @@ class ConfigController extends Controller
     public function configuration(Request $request): JsonResponse
     {
         $location = Location::get($request->ip());
+        $lat = is_object($location) ? ($location->latitude ?? 0) : 0;
+        $lon = is_object($location) ? ($location->longitude ?? 0) : 0;
 
         $playstore = business_config('app_url_playstore', 'landing_button_and_links');
         $appstore = business_config('app_url_appstore', 'landing_button_and_links');
+        $webUrl = business_config('web_url', 'landing_button_and_links');
+        $terms = business_config('terms_and_conditions', 'pages_setup');
+        $refund = business_config('refund_policy', 'pages_setup');
+        $cancel = business_config('cancellation_policy', 'pages_setup');
 
         $google_social_login = business_config('google_social_login', 'social_login');
         $facebook_social_login = business_config('facebook_social_login', 'social_login');
 
+        $paymentGateways = [];
+        try {
+            $paymentGateways = BusinessSettings::query()
+                ->select('live_values')
+                ->where('settings_type', 'payment_config')
+                ->get()
+                ->map(function ($query) {
+                    $values = is_array($query->live_values) ? $query->live_values : [];
+                    $status = $values['status'] ?? 0;
+                    if ((string) $status !== '1') {
+                        return null;
+                    }
+                    return $values['gateway'] ?? null;
+                })
+                ->filter()
+                ->values();
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        $proMember = ['enabled' => 0];
+        try {
+            if (class_exists(\Modules\ProMemberManagement\Services\ProMemberService::class)) {
+                $proMember = app(\Modules\ProMemberManagement\Services\ProMemberService::class)
+                    ->publicConfig(auth('api')->id());
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        $minVersions = settings_live('customer_app_settings', 'app_settings');
+        if (is_string($minVersions)) {
+            $minVersions = json_decode($minVersions);
+        }
+
         return response()->json(response_formatter(DEFAULT_200, [
-            'business_name' => (business_config('business_name', 'business_information'))->live_values ?? null,
-            'logo' => (business_config('business_logo', 'business_information'))->live_values ?? null,
-            'country_code' => (business_config('country_code', 'business_information'))->live_values ?? null,
-            'business_address' => (business_config('business_address', 'business_information'))->live_values ?? null,
-            'business_phone' => (business_config('business_phone', 'business_information'))->live_values ?? null,
-            'business_email' => (business_config('business_email', 'business_information'))->live_values ?? null,
+            'business_name' => settings_live('business_name', 'business_information'),
+            'logo' => settings_live('business_logo', 'business_information'),
+            'country_code' => settings_live('country_code', 'business_information'),
+            'business_address' => settings_live('business_address', 'business_information'),
+            'business_phone' => settings_live('business_phone', 'business_information'),
+            'business_email' => settings_live('business_email', 'business_information'),
             'base_url' => 'https://api.mstoo.co.in/api/v1/',
-            'currency_decimal_point' => (business_config('currency_decimal_point', 'business_information'))->live_values ?? null,
-            'currency_code' => (business_config('currency_code', 'business_information'))->live_values ?? null,
-            'currency_symbol_position' => (business_config('currency_symbol_position', 'business_information'))->live_values ?? null,
+            'currency_decimal_point' => settings_live('currency_decimal_point', 'business_information'),
+            'currency_code' => currency_code(),
+            'currency_symbol_position' => settings_live('currency_symbol_position', 'business_information'),
             'about_us' => route('about-us'),
             'privacy_policy' => route('privacy-policy'),
-            'terms_and_conditions' => (business_config('terms_and_conditions', 'pages_setup'))->is_active ? route('terms-and-conditions') : "",
-            'refund_policy' => (business_config('refund_policy', 'pages_setup'))->is_active ? route('refund-policy') : "",
-            'cancellation_policy' => (business_config('cancellation_policy', 'pages_setup'))->is_active ? route('cancellation-policy') : "",
+            'terms_and_conditions' => ($terms?->is_active ?? 0) ? route('terms-and-conditions') : '',
+            'refund_policy' => ($refund?->is_active ?? 0) ? route('refund-policy') : '',
+            'cancellation_policy' => ($cancel?->is_active ?? 0) ? route('cancellation-policy') : '',
             'default_location' => ['default' => [
-                'lat' => $location->latitude,
-                'lon' => $location->longitude
+                'lat' => $lat,
+                'lon' => $lon,
             ]],
-            'user_location_info' => $location,
+            'user_location_info' => $location ?: null,
             'app_url_android' => '',
             'app_url_ios' => '',
-            //'sms_verification' => (business_config('sms_verification', 'service_setup'))->live_values ?? null,
-            //'email_verification' => (business_config('email_verification', 'service_setup'))->live_values ?? null,
             'map_api_key' => $this->google_map,
             'image_base_url' => asset('storage/app/public'),
             'pagination_limit' => 20,
@@ -72,41 +111,36 @@ class ConfigController extends Controller
             'currencies' => CURRENCIES,
             'countries' => COUNTRIES,
             'time_zones' => DateTimeZone::listIdentifiers(),
-            'payment_gateways' => BusinessSettings::select('live_values')->where('settings_type', 'payment_config')->whereJsonContains('live_values->status', '1')->get()->map(function ($query) {
-                return $query->live_values['gateway'];
-            }),
-            'footer_text' => (business_config('footer_text', 'business_information'))->live_values ?? null,
-            'cookies_text' => (business_config('cookies_text', 'business_information'))->live_values ?? null,
+            'payment_gateways' => $paymentGateways,
+            'footer_text' => settings_live('footer_text', 'business_information'),
+            'cookies_text' => settings_live('cookies_text', 'business_information'),
             'admin_details' => User::select('id', 'first_name', 'last_name', 'profile_image')->where('user_type', ADMIN_USER_TYPES[0])->first(),
-            'min_versions' => json_decode((business_config('customer_app_settings', 'app_settings'))->live_values ?? null),
-            'app_url_playstore' => $playstore->is_active ? $playstore->live_values : null,
-            'app_url_appstore' => $appstore->is_active ? $appstore->live_values : null,
-            'web_url' => (business_config('web_url', 'landing_button_and_links'))->is_active == '1' ? (business_config('web_url', 'landing_button_and_links'))->live_values : null,
-            'google_social_login' => (int) ($google_social_login->live_values ?? 0),
-            'facebook_social_login' => (int) ($facebook_social_login->live_values ?? 0),
-            'phone_number_visibility_for_chatting' => (int)((business_config('phone_number_visibility_for_chatting', 'business_information'))->live_values ?? 0),
-            'wallet_status' => (int)((business_config('customer_wallet', 'customer_config'))->live_values ?? 0),
-            'loyalty_point_status' => (int)((business_config('customer_loyalty_point', 'customer_config'))->live_values ?? 0),
-            'referral_earning_status' => (int)((business_config('customer_referral_earning', 'customer_config'))->live_values ?? 0),
-            'direct_provider_booking' => (int)((business_config('direct_provider_booking', 'business_information'))->live_values ?? 0),
-            'bidding_status' => (int)((business_config('bidding_status', 'bidding_system'))->live_values ?? 0),
-            'phone_verification' => (int)((business_config('phone_verification', 'service_setup'))->live_values ?? 0),
-            'email_verification' => (int)((business_config('email_verification', 'service_setup'))->live_values ?? 0),
-            'forget_password_verification_method' => (business_config('forget_password_verification_method', 'business_information'))->live_values ?? null,
-            'cash_after_service' => (int)((business_config('cash_after_service', 'service_setup'))->live_values ?? 0),
-            'digital_payment' => (int)((business_config('digital_payment', 'service_setup'))->live_values ?? 0),
-            'wallet_payment' => (int)((business_config('wallet_payment', 'service_setup'))->live_values ?? 0),
-            'customer_self_registration' => (int)((business_config('customer_self_registration', 'customer_config'))->live_values ?? 1),
-            'customer_can_cancel_booking' => (int)((business_config('customer_can_cancel_booking', 'service_setup'))->live_values ?? 1),
+            'min_versions' => $minVersions,
+            'app_url_playstore' => ($playstore?->is_active ?? 0) ? ($playstore->live_values ?? null) : null,
+            'app_url_appstore' => ($appstore?->is_active ?? 0) ? ($appstore->live_values ?? null) : null,
+            'web_url' => (string) ($webUrl?->is_active ?? 0) === '1' ? ($webUrl->live_values ?? null) : null,
+            'google_social_login' => (int) ($google_social_login?->live_values ?? 0),
+            'facebook_social_login' => (int) ($facebook_social_login?->live_values ?? 0),
+            'phone_number_visibility_for_chatting' => (int) (settings_live('phone_number_visibility_for_chatting', 'business_information', 0)),
+            'wallet_status' => (int) (settings_live('customer_wallet', 'customer_config', 0)),
+            'loyalty_point_status' => (int) (settings_live('customer_loyalty_point', 'customer_config', 0)),
+            'referral_earning_status' => (int) (settings_live('customer_referral_earning', 'customer_config', 0)),
+            'direct_provider_booking' => (int) (settings_live('direct_provider_booking', 'business_information', 0)),
+            'bidding_status' => (int) (settings_live('bidding_status', 'bidding_system', 0)),
+            'phone_verification' => (int) (settings_live('phone_verification', 'service_setup', 0)),
+            'email_verification' => (int) (settings_live('email_verification', 'service_setup', 0)),
+            'forget_password_verification_method' => settings_live('forget_password_verification_method', 'business_information'),
+            'cash_after_service' => (int) (settings_live('cash_after_service', 'service_setup', 0)),
+            'digital_payment' => (int) (settings_live('digital_payment', 'service_setup', 0)),
+            'wallet_payment' => (int) (settings_live('wallet_payment', 'service_setup', 0)),
+            'customer_self_registration' => (int) (settings_live('customer_self_registration', 'customer_config', 1)),
+            'customer_can_cancel_booking' => (int) (settings_live('customer_can_cancel_booking', 'service_setup', 1)),
             'maintenance' => mstoo_under_maintenance() ? mstoo_maintenance_config() : ['status' => 0],
-            'social_media' => (business_config('social_media', 'landing_social_media'))->live_values ?? null,
-            'otp_resend_time' => (int) (business_config('otp_resend_time', 'otp_login_setup'))?->live_values ?? null,
-
-            'default_commission' => (business_config('default_commission', 'business_information'))->live_values,
+            'social_media' => settings_live('social_media', 'landing_social_media'),
+            'otp_resend_time' => (int) (settings_live('otp_resend_time', 'otp_login_setup')),
+            'default_commission' => settings_live('default_commission', 'business_information'),
             'blog_section_enabled' => blog_section_enabled() ? 1 : 0,
-            'pro_member' => class_exists(\Modules\ProMemberManagement\Services\ProMemberService::class)
-                ? app(\Modules\ProMemberManagement\Services\ProMemberService::class)->publicConfig(auth('api')->id())
-                : ['enabled' => 0],
+            'pro_member' => $proMember,
         ]), 200);
     }
 

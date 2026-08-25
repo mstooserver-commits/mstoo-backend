@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Modules\BookingModule\Entities\Booking;
 use Modules\CategoryManagement\Entities\Category;
@@ -59,8 +60,8 @@ class ServiceController extends Controller
     public function index(Request $request): View|Factory|Application
     {
         $request->validate([
-            'status' => 'in:active,inactive,all',
-            'zone_id' => 'uuid'
+            'status' => 'nullable|in:active,inactive,all',
+            'zone_id' => 'nullable|uuid'
         ]);
 
         $search = $request->has('search') ? $request['search'] : '';
@@ -417,18 +418,26 @@ class ServiceController extends Controller
 
     private function postedAdsQuery(Request $request)
     {
-        return $this->service->with(['category', 'poster.addresses'])->latest()
+        $relations = ['category'];
+        if (Schema::hasColumn('services', 'added_by')) {
+            $relations[] = 'poster.addresses';
+        }
+
+        return $this->service->with($relations)->latest()
             ->when($request->filled('search'), function ($query) use ($request) {
                 $term = $request['search'];
                 $query->where(function ($inner) use ($term) {
                     $inner->where('name', 'LIKE', '%' . $term . '%')
-                        ->orWhere('location', 'LIKE', '%' . $term . '%')
                         ->orWhereHas('poster', function ($poster) use ($term) {
-                            $poster->where('first_name', 'LIKE', '%' . $term . '%')
-                                ->orWhere('last_name', 'LIKE', '%' . $term . '%')
-                                ->orWhere('email', 'LIKE', '%' . $term . '%')
-                                ->orWhere('phone', 'LIKE', '%' . $term . '%');
+                            $poster->where(function ($posterQuery) use ($term) {
+                                $posterQuery->whereNameLike($term)
+                                    ->orWhere('email', 'LIKE', '%' . $term . '%')
+                                    ->orWhere('phone', 'LIKE', '%' . $term . '%');
+                            });
                         });
+                    if (Schema::hasColumn('services', 'location')) {
+                        $inner->orWhere('location', 'LIKE', '%' . $term . '%');
+                    }
                 });
             })
             ->when($request->filled('category_id'), function ($query) use ($request) {

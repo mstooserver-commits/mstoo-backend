@@ -547,9 +547,7 @@ class CustomerController extends Controller
             $term = str_replace(['%', '_'], ['\%', '\_'], $filters['search']);
             $like = '%' . $term . '%';
             $query->where(function ($query) use ($like, $term) {
-                $query->where('first_name', 'like', $like)
-                    ->orWhere('last_name', 'like', $like)
-                    ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$like])
+                $query->whereNameLike($filters['search'])
                     ->orWhere('email', 'like', $like)
                     ->orWhere('phone', 'like', $like)
                     ->orWhere('id', $term);

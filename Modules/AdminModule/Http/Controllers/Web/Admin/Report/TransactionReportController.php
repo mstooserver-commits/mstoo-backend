@@ -18,6 +18,7 @@ use Modules\TransactionModule\Entities\Account;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\AdminModule\Services\AnalyticsReportService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use function pagination_limit;
@@ -58,6 +59,8 @@ class TransactionReportController extends Controller
      */
     public function get_transaction_report(Request $request)
     {
+        abort_unless(can_view_report('transaction_report'), 403);
+
         Validator::make($request->all(), [
             'zone_ids' => 'array',
             'zone_ids.*' => 'uuid',
@@ -266,7 +269,14 @@ class TransactionReportController extends Controller
             ->latest()->paginate(pagination_limit())->appends($query_params);
 
         $admin_account = Account::where('user_id', Auth::user()->id)->first();
-        return view('adminmodule::admin.report.transaction', compact('zones', 'providers', 'filtered_transactions', 'transaction_type', 'admin_account', 'total_transaction', 'query_params'));
+        $analytics = app(AnalyticsReportService::class);
+        $summary = $analytics->transactionSummary($request);
+        $charts = $analytics->transactionCharts($request);
+        $dailyRows = $analytics->transactionDailyRows($request);
+        $dropdowns = $analytics->dropdowns();
+        $filters = $request->query();
+
+        return view('adminmodule::admin.report.transaction', compact('zones', 'providers', 'filtered_transactions', 'transaction_type', 'admin_account', 'total_transaction', 'query_params', 'summary', 'charts', 'dailyRows', 'dropdowns', 'filters'));
     }
 
     /**
@@ -280,6 +290,7 @@ class TransactionReportController extends Controller
      */
     public function download_transaction_report(Request $request): StreamedResponse|string
     {
+        abort_unless(can_export_report(), 403);
         Validator::make($request->all(), [
             'zone_ids' => 'array',
             'zone_ids.*' => 'uuid',
