@@ -48,8 +48,24 @@ class CouponController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $proCouponAllowed = class_exists(\Modules\ProMemberManagement\Services\ProMemberService::class)
-            && app(\Modules\ProMemberManagement\Services\ProMemberService::class)->couponBenefitEnabled(auth('api')->id());
+        $proCouponAllowed = false;
+        try {
+            if (class_exists(\Modules\ProMemberManagement\Services\ProMemberService::class)) {
+                $userId = auth('api')->id();
+                $proCouponAllowed = app(\Modules\ProMemberManagement\Services\ProMemberService::class)
+                    ->couponBenefitEnabled($userId !== null ? (string) $userId : null);
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        $applyZone = function ($query) {
+            if (should_apply_customer_zone_scope()) {
+                $query->whereHas('discount.discount_types', function ($inner) {
+                    $inner->where(['discount_type' => 'zone', 'type_wise_id' => customer_zone_id()]);
+                });
+            }
+        };
 
         $active_coupons = $this->coupon->with(['discount'])
             ->when(!is_null($request->status), function ($query) use ($request) {
@@ -64,9 +80,7 @@ class CouponController extends Controller
                     ->whereDate('end_date', '>=', now())
                     ->where('is_active', 1);
             })
-            ->whereHas('discount.discount_types', function ($query) {
-                $query->where(['discount_type' => 'zone', 'type_wise_id' => config('zone_id')]);
-            })
+            ->when(true, $applyZone)
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         $expired_coupons = $this->coupon->with(['discount'])
@@ -81,9 +95,7 @@ class CouponController extends Controller
                     ->whereDate('end_date', '<', now())
                     ->where('is_active', 1);
             })
-            ->whereHas('discount.discount_types', function ($query) {
-                $query->where(['discount_type' => 'zone', 'type_wise_id' => config('zone_id')]);
-            })
+            ->when(true, $applyZone)
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         return response()->json(response_formatter(DEFAULT_200, ['active_coupons' => $active_coupons, 'expired_coupons' => $expired_coupons]), 200);

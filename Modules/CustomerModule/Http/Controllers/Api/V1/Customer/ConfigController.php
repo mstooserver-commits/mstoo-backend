@@ -32,7 +32,12 @@ class ConfigController extends Controller
      */
     public function configuration(Request $request): JsonResponse
     {
-        $location = Location::get($request->ip());
+        $location = null;
+        try {
+            $location = Location::get($request->ip());
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
         $lat = is_object($location) ? ($location->latitude ?? 0) : 0;
         $lon = is_object($location) ? ($location->longitude ?? 0) : 0;
 

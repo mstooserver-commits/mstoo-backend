@@ -34,7 +34,10 @@ class SubCategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $sub_categories = $this->category->withCount('services')->with(['parent'])
+        $sub_categories = $this->category->withoutGlobalScope('zone_wise_data')
+            ->withCount('services')->with(['parent' => function ($query) {
+                $query->withoutGlobalScopes();
+            }])
             ->ofStatus(1)->ofType('sub')->latest()->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         return response()->json(response_formatter(DEFAULT_200, $sub_categories), 200);

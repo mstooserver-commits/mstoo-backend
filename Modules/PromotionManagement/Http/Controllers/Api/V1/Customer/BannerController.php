@@ -34,12 +34,12 @@ class BannerController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $banners = $this->banner->with(['service', 'category'])->ofStatus(1)
+        $banners = $this->banner->withoutGlobalScope('zone_wise_data')->with(['service', 'category'])->ofStatus(1)
             ->with(['service' => function ($query) {
-                $query->where('is_active', 1);
+                $query->withoutGlobalScope('zone_wise_data')->where('is_active', 1);
             }])
             ->with(['category' => function ($query) {
-                $query->where('is_active', 1);
+                $query->withoutGlobalScope('zone_wise_data')->where('is_active', 1);
             }])
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 

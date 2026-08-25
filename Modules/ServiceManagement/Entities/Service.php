@@ -92,10 +92,15 @@ class Service extends Model
     {
         $query->where(['is_active' => 1])
             ->whereHas('category', function ($query) {
-                $query->where('is_active', 1);
+                $query->withoutGlobalScope('zone_wise_data')->where('is_active', 1);
             })
-            ->whereHas('subCategory', function ($query) {
-                $query->where('is_active', 1);
+            ->where(function ($query) {
+                $query->whereNull('sub_category_id')
+                    ->orWhere('sub_category_id', '0')
+                    ->orWhere('sub_category_id', '')
+                    ->orWhereHas('subCategory', function ($subQuery) {
+                        $subQuery->where('is_active', 1);
+                    });
             });
     }
 
@@ -109,10 +114,15 @@ class Service extends Model
         if($status == 1) {
             $query->where(['is_active' => 1])
                 ->whereHas('category', function ($query) {
-                    $query->where('is_active', 1);
+                    $query->withoutGlobalScope('zone_wise_data')->where('is_active', 1);
                 })
-                ->whereHas('subCategory', function ($query) {
-                    $query->where('is_active', 1);
+                ->where(function ($query) {
+                    $query->whereNull('sub_category_id')
+                        ->orWhere('sub_category_id', '0')
+                        ->orWhere('sub_category_id', '')
+                        ->orWhereHas('subCategory', function ($subQuery) {
+                            $subQuery->where('is_active', 1);
+                        });
                 });
 
         } else if ($status == 0) {
@@ -182,14 +192,18 @@ class Service extends Model
     protected static function booted()
     {
         static::addGlobalScope('zone_wise_data', function (Builder $builder) {
-            if (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
-                $builder->whereHas('category.zones', function ($query) {
-                    $query->where('zone_id', Config::get('zone_id'));
+            if (is_customer_api_request()) {
+                if (!should_apply_customer_zone_scope()) {
+                    return;
+                }
+                $zoneId = customer_zone_id();
+                $builder->whereHas('category.zones', function ($query) use ($zoneId) {
+                    $query->where('zones.id', $zoneId);
                 })->with(['service_discount', 'campaign_discount']);
-            } elseif (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
+            } elseif (request()->is('api/*/provider') || request()->is('api/*/provider/*')) {
                 if (auth()->check() && request()->user()->provider != null) {
                     $builder->whereHas('category.zones', function ($query) {
-                        $query->where('zone_id', request()->user()->provider->zone_id);
+                        $query->where('zones.id', request()->user()->provider->zone_id);
                     })->with(['service_discount', 'campaign_discount']);
                 }
             }

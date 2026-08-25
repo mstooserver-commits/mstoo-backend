@@ -45,13 +45,14 @@ class CategoryController extends Controller
         
         // to sort others in last
         $categories = $this->category
-        ->with(['zones'])
-        ->ofStatus(1)
-        ->ofType('main')
-        ->orderByRaw("CASE WHEN name = 'Others' THEN 1 ELSE 0 END, name")
-        ->latest()
-        ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
-        ->withPath('');
+            ->withoutGlobalScope('zone_wise_data')
+            ->with(['zones'])
+            ->ofStatus(1)
+            ->ofType('main')
+            ->orderByRaw("CASE WHEN name = 'Others' THEN 1 ELSE 0 END, name")
+            ->latest()
+            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
+            ->withPath('');
         //
 
         return response()->json(response_formatter(DEFAULT_200, $categories), 200);
@@ -75,29 +76,27 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $childes = $this->category->ofStatus(1)->ofType('sub')->withoutGlobalScopes()
+        $childes = $this->category->withoutGlobalScope('zone_wise_data')
+            ->ofStatus(1)->ofType('sub')
             ->withCount(['services' => function ($query) {
                 $query->where('is_active', 1);
             }])
             ->whereHas('parent', function ($query) {
-                $query->ofStatus(1);
+                $query->withoutGlobalScopes()->ofStatus(1);
             })
-            ->where('parent_id', $request['id'])->orderBY('name', 'asc')
+            ->where('parent_id', $request['id'])->orderBy('name', 'asc')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        if(count($childes) > 0) {
-            //update category view count
+        if (count($childes) > 0) {
             $auth_user = auth('api')->user();
             if ($auth_user) {
-                $recent_view = $this->recent_view->firstOrNew(['category_id' =>  $request->id, 'user_id' => $auth_user->id]);
+                $recent_view = $this->recent_view->firstOrNew(['category_id' => $request->id, 'user_id' => $auth_user->id]);
                 $recent_view->total_category_view += 1;
                 $recent_view->save();
             }
-
-            return response()->json(response_formatter(DEFAULT_200, $childes), 200);
         }
 
-        return response()->json(response_formatter(DEFAULT_204), 200);
+        return response()->json(response_formatter(DEFAULT_200, $childes), 200);
     }
 
     /**
@@ -116,7 +115,8 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $categories = $this->category->with(['zones', 'services_by_category.variations', 'services_by_category' => function ($query) {
+        $categories = $this->category->withoutGlobalScope('zone_wise_data')
+            ->with(['zones', 'services_by_category.variations', 'services_by_category' => function ($query) {
                 $query->ofStatus(1);
             }])
             ->ofStatus(1)
@@ -144,8 +144,13 @@ class CategoryController extends Controller
     private function variations_app_format($service): array
     {
         $formatting = [];
-        $filtered = $service['variations']->where('zone_id', Config::get('zone_id'));
-        $formatting['zone_id'] = Config::get('zone_id');
+        $variations = collect($service['variations'] ?? []);
+        $zoneId = Config::get('zone_id');
+        $filtered = $zoneId ? $variations->where('zone_id', $zoneId) : $variations;
+        if ($filtered->isEmpty()) {
+            $filtered = $variations;
+        }
+        $formatting['zone_id'] = $zoneId;
         $formatting['default_price'] = $filtered->first() ? $filtered->first()->price : 0;
         foreach ($filtered as $data) {
             $formatting['zone_wise_variations'][] = [

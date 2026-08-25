@@ -99,11 +99,14 @@ class Category extends Model
     protected static function booted()
     {
         static::addGlobalScope('zone_wise_data', function (Builder $builder) {
-            if (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
-                $builder->whereHas('zones', function ($query) {
-                    $query->where('zone_id', Config::get('zone_id'));
-                })->with(['category_discount', 'campaign_discount']);
+            if (!is_customer_api_request() || !should_apply_customer_zone_scope()) {
+                return;
             }
+
+            $zoneId = customer_zone_id();
+            $builder->whereHas('zones', function ($query) use ($zoneId) {
+                $query->where('zones.id', $zoneId);
+            })->with(['category_discount', 'campaign_discount']);
         });
     }
 }

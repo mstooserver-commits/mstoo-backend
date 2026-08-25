@@ -21,15 +21,20 @@ class ZoneAdder
      */
     public function handle(Request $request, Closure $next)
     {
-        if (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
-            Config::set('zone_id', $request->header('zoneid') ?? null);
-            if (preg_match('/^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i', Config::get('zone_id'))) {
-                $zone = Zone::ofStatus(1)->where('id', $request->header('zoneid'))->first();
+        if (is_customer_api_request()) {
+            $zoneId = $request->header('zoneid') ?: $request->input('zone_id');
+            Config::set('zone_id', $zoneId);
+
+            if (customer_zone_id()) {
+                $zone = Zone::ofStatus(1)->where('id', customer_zone_id())->first();
                 if (!isset($zone)) {
-                    return response()->json(response_formatter(ZONE_404), 401);
+                    Config::set('zone_id', null);
                 }
+            } else {
+                Config::set('zone_id', null);
             }
         }
+
         return $next($request);
     }
 }

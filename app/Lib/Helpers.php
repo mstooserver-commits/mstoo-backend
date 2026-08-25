@@ -347,3 +347,69 @@ if (!function_exists('mask_email')) {
         return $visible . str_repeat('*', max(1, strlen($name) - 1)) . '@' . $domain;
     }
 }
+
+if (!function_exists('is_customer_api_request')) {
+    function is_customer_api_request(): bool
+    {
+        try {
+            if (!app()->runningInConsole() && app()->bound('request')) {
+                $path = request()->decodedPath();
+
+                return (bool) preg_match('#^api/[^/]+/customer(/|$)#', $path);
+            }
+        } catch (\Throwable $exception) {
+            return false;
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('customer_zone_id')) {
+    function customer_zone_id(): ?string
+    {
+        $zoneId = config('zone_id');
+        if (!is_string($zoneId) || $zoneId === '') {
+            return null;
+        }
+        if (!preg_match('/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i', $zoneId)) {
+            return null;
+        }
+
+        return $zoneId;
+    }
+}
+
+if (!function_exists('should_apply_customer_zone_scope')) {
+    function should_apply_customer_zone_scope(): bool
+    {
+        static $apply;
+
+        if ($apply !== null) {
+            return $apply;
+        }
+
+        $zoneId = customer_zone_id();
+        if (!$zoneId) {
+            return $apply = false;
+        }
+
+        try {
+            if (!\Illuminate\Support\Facades\Schema::hasTable('category_zone')) {
+                return $apply = false;
+            }
+
+            // Only filter catalog by zone when this zone is actually mapped to live categories.
+            // An empty/wrong zone mapping was hiding every category, subcategory, banner and ad.
+            $apply = \Illuminate\Support\Facades\DB::table('category_zone')
+                ->join('categories', 'categories.id', '=', 'category_zone.category_id')
+                ->where('category_zone.zone_id', $zoneId)
+                ->where('categories.is_active', 1)
+                ->exists();
+        } catch (\Throwable $exception) {
+            $apply = false;
+        }
+
+        return $apply;
+    }
+}

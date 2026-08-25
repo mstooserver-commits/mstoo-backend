@@ -36,15 +36,19 @@ class Coupon extends Model
     protected static function booted()
     {
         static::addGlobalScope('zone_wise_data', function (Builder $builder) {
-            if (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
-                $builder->whereHas('discount', function ($query) {
-                    $query->where('promotion_type', 'coupon')
-//                        ->whereDate('start_date', '<=', now())
-//                        ->whereDate('end_date', '>=', now())
-                        ->where('is_active', 1);
-                })->whereHas('discount.discount_types', function ($query) {
-                    $query->where(['discount_type' => 'zone', 'type_wise_id' => config('zone_id')]);
-                })->latest()->with(['discount']);
+            if (!is_customer_api_request()) {
+                return;
+            }
+
+            $builder->whereHas('discount', function ($query) {
+                $query->where('promotion_type', 'coupon')
+                    ->where('is_active', 1);
+            })->with(['discount']);
+
+            if (should_apply_customer_zone_scope()) {
+                $builder->whereHas('discount.discount_types', function ($query) {
+                    $query->where(['discount_type' => 'zone', 'type_wise_id' => customer_zone_id()]);
+                });
             }
         });
     }

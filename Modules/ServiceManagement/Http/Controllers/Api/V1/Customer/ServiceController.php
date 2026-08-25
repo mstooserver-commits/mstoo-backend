@@ -84,22 +84,23 @@ class ServiceController extends Controller
             $long = $request['long'];
             $radius = 500; // radius in kilometers
     
-            $services = $this->service->with(['category.zonesBasicInfo', 'variations'])
+            $services = $this->service->withoutGlobalScope('zone_wise_data')
+                ->with(['category.zonesBasicInfo', 'variations'])
                 ->active()
-                // ->whereRaw("ACOS(SIN(RADIANS('latitude'))*SIN(RADIANS($lat))+COS(RADIANS('latitude'))*COS(RADIANS($lat))*COS(RADIANS('longitude')-RADIANS($long)))*6380 < 10")
                 ->selectRaw(
                     '*,
                     ( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) * cos( radians( longitude ) - radians(?) ) + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS distance',
                     [$lat, $long, $lat]
                 )
-                ->having('distance', '<', $radius)
-                ->orderBy('distance')
+                ->havingRaw('distance IS NULL OR distance < ?', [$radius])
+                ->orderByRaw('CASE WHEN distance IS NULL THEN 1 ELSE 0 END, distance')
                 ->latest()
                 ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         }
         else{
-            $services = $this->service->with(['category.zonesBasicInfo', 'variations'])
+            $services = $this->service->withoutGlobalScope('zone_wise_data')
+            ->with(['category.zonesBasicInfo', 'variations'])
             ->active()->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
         }
@@ -412,8 +413,13 @@ class ServiceController extends Controller
     private function variations_app_format($service): array
     {
         $formatting = [];
-        $filtered = $service['variations']->where('zone_id', Config::get('zone_id'));
-        $formatting['zone_id'] = Config::get('zone_id');
+        $variations = collect($service['variations'] ?? []);
+        $zoneId = Config::get('zone_id');
+        $filtered = $zoneId ? $variations->where('zone_id', $zoneId) : $variations;
+        if ($filtered->isEmpty()) {
+            $filtered = $variations;
+        }
+        $formatting['zone_id'] = $zoneId;
         $formatting['default_price'] = $filtered->first() ? $filtered->first()->price : 0;
         foreach ($filtered as $data) {
             $formatting['zone_wise_variations'][] = [
@@ -533,40 +539,32 @@ class ServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-            Log::info(auth('api')->user()->user_type);
-            Log::info(auth('api')->user()->id);
-            Log::info(auth('api')->user()->id);
+        $authUser = auth('api')->user();
 
-        if(auth('api')->user()->user_type == 'provider-admin'){
-        	$services = $this->service->with(['category.zonesBasicInfo', 'variations'])
+        if($authUser && $authUser->user_type == 'provider-admin'){
+        	$services = $this->service->withoutGlobalScope('zone_wise_data')->with(['category.zonesBasicInfo', 'variations'])
         	->join('variations','services.id','=','variations.service_id')
             ->where(['sub_category_id' => $sub_category_id])
-            ->where('services.added_by', '<>', auth('api')->user()->id)
+            ->where('services.added_by', '<>', $authUser->id)
             ->latest()->where(['is_active' => 1])
             ->paginate($request['limit'], ['services.*'], 'offset', $request['offset'])->withPath('');
 
             return response()->json(response_formatter(DEFAULT_200, self::variation_mapper($services)), 200);
         }
         else{
-	        $services = $this->service->with(['category.zonesBasicInfo', 'variations'])
+	        $services = $this->service->withoutGlobalScope('zone_wise_data')->with(['category.zonesBasicInfo', 'variations'])
 	            ->where(['sub_category_id' => $sub_category_id])
 	            ->latest()->where(['is_active' => 1])
 	            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-	        if (count($services) > 0) {
-	            //update sub-category view count
-	            $auth_user = auth('api')->user();
-	            if ($auth_user) {
-	                $recent_view = $this->recent_view->firstOrNew(['sub_category_id' =>  $sub_category_id, 'user_id' => $auth_user->id]);
-	                $recent_view->total_sub_category_view += 1;
-	                $recent_view->save();
-	            }
-
-	            return response()->json(response_formatter(DEFAULT_200, self::variation_mapper($services)), 200);
+	        if (count($services) > 0 && $authUser) {
+	            $recent_view = $this->recent_view->firstOrNew(['sub_category_id' =>  $sub_category_id, 'user_id' => $authUser->id]);
+	            $recent_view->total_sub_category_view += 1;
+	            $recent_view->save();
 	        }
-    	}
 
-        return response()->json(response_formatter(DEFAULT_204), 200);
+            return response()->json(response_formatter(DEFAULT_200, self::variation_mapper($services)), 200);
+    	}
     }
 
     // filter service by price range
@@ -583,22 +581,20 @@ class ServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-            Log::info(auth('api')->user()->user_type);
-            Log::info(auth('api')->user()->id);
-            Log::info(auth('api')->user()->id);
+        $authUser = auth('api')->user();
 
-        if(auth('api')->user()->user_type == 'provider-admin'){
-        	$services = $this->service->with(['category.zonesBasicInfo', 'variations'])
+        if($authUser && $authUser->user_type == 'provider-admin'){
+        	$services = $this->service->withoutGlobalScope('zone_wise_data')->with(['category.zonesBasicInfo', 'variations'])
         	->join('variations','services.id','=','variations.service_id')
             ->where(['sub_category_id' => $sub_category_id])
-            ->where('services.added_by', '<>', auth('api')->user()->id)
+            ->where('services.added_by', '<>', $authUser->id)
             ->latest()->where(['is_active' => 1])
             ->paginate($request['limit'], ['services.*'], 'offset', $request['offset'])->withPath('');
 
             return response()->json(response_formatter(DEFAULT_200, self::variation_mapper($services)), 200);
         }
         else{
-	        $services = $this->service->with(['category.zonesBasicInfo', 'variations'])
+	        $services = $this->service->withoutGlobalScope('zone_wise_data')->with(['category.zonesBasicInfo', 'variations'])
                 ->join('variations','services.id','=','variations.service_id')
                 ->whereBetween('variations.price', [$request->minprice, $request->maxprice])
 	            ->where(['sub_category_id' => $sub_category_id])

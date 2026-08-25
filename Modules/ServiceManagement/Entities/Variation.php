@@ -26,9 +26,12 @@ class Variation extends Model
     protected static function booted()
     {
         static::addGlobalScope('zone_wise_data', function (Builder $builder) {
-            if (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
-                $builder->where(['zone_id' => Config::get('zone_id')])->with(['zone:id,name']);
-            } elseif (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
+            if (is_customer_api_request()) {
+                $zoneId = customer_zone_id();
+                if ($zoneId && should_apply_customer_zone_scope()) {
+                    $builder->where(['zone_id' => $zoneId])->with(['zone:id,name']);
+                }
+            } elseif (request()->is('api/*/provider') || request()->is('api/*/provider/*')) {
                 if (auth()->check() && auth()->user()->provider != null) {
                     $builder->where(['zone_id' => auth()->user()->provider->zone_id])->with(['zone:id,name']);
                 }

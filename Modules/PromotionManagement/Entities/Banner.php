@@ -38,13 +38,18 @@ class Banner extends Model
     protected static function booted()
     {
         static::addGlobalScope('zone_wise_data', function (Builder $builder) {
-            if (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
-                $builder->whereHas('category.zones', function ($query) {
-                    $query->where('zone_id', Config::get('zone_id'));
-                })->orWhereHas('service.category.zones', function ($query) {
-                    $query->where('zone_id', Config::get('zone_id'));
-                })->orWhere('resource_type', 'link');
+            if (!is_customer_api_request() || !should_apply_customer_zone_scope()) {
+                return;
             }
+
+            $zoneId = customer_zone_id();
+            $builder->where(function ($query) use ($zoneId) {
+                $query->whereHas('category.zones', function ($inner) use ($zoneId) {
+                    $inner->where('zones.id', $zoneId);
+                })->orWhereHas('service.category.zones', function ($inner) use ($zoneId) {
+                    $inner->where('zones.id', $zoneId);
+                })->orWhere('resource_type', 'link');
+            });
         });
     }
 
