@@ -49,7 +49,9 @@ class ProviderController extends Controller
 //            ->whereHas('zone', function ($query) {
 //                $query->where('id', Config::get('zone_id'));
 //            })
-            ->where('zone_id', Config::get('zone_id'))
+            ->when(customer_zone_id(), function ($query) {
+                $query->where('zone_id', customer_zone_id());
+            })
             ->ofStatus(1)
             ->when($request->has('category_ids'), function ($query) use($request) {
                 $query->whereHas('subscribed_services', function ($query) use($request) {
@@ -102,7 +104,9 @@ class ProviderController extends Controller
     public function get_provider_list_by_sub_category(Request $request)
     {
         $providers = $this->provider->with(['owner'])
-            ->where('zone_id', Config::get('zone_id'))
+            ->when(customer_zone_id(), function ($query) {
+                $query->where('zone_id', customer_zone_id());
+            })
             ->whereHas('subscribed_services', function ($query) use($request) {
                 $query->where('sub_category_id', $request['sub_category_id']);
             })

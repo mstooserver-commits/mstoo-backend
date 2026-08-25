@@ -348,6 +348,17 @@ if (!function_exists('mask_email')) {
     }
 }
 
+if (!function_exists('customer_auth_user')) {
+    function customer_auth_user()
+    {
+        try {
+            return auth('api')->user();
+        } catch (\Throwable $exception) {
+            return null;
+        }
+    }
+}
+
 if (!function_exists('customer_app_languages')) {
     function customer_app_languages(): array
     {

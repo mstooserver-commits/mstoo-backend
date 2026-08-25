@@ -52,6 +52,9 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
         Route::get('geocode-api', 'ConfigController@geocode_api');
     });
 
+    Route::get('offline-payment', 'ConfigController@offline_payment');
+    Route::get('offline-payment-method', 'ConfigController@offline_payment');
+
     Route::group(['middleware' => ['auth:api']], function () {
         Route::put('update/fcm-token','CustomerController@update_fcm_token');
         Route::put('update/profile','CustomerController@update_profile');

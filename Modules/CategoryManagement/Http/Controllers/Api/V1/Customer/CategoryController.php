@@ -76,19 +76,25 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $childes = $this->category->withoutGlobalScope('zone_wise_data')
-            ->ofStatus(1)->ofType('sub')
-            ->withCount(['services' => function ($query) {
-                $query->where('is_active', 1);
-            }])
-            ->whereHas('parent', function ($query) {
-                $query->withoutGlobalScopes()->ofStatus(1);
-            })
-            ->where('parent_id', $request['id'])->orderBy('name', 'asc')
-            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+        try {
+            $childes = $this->category->withoutGlobalScopes()
+                ->where('is_active', 1)
+                ->where('parent_id', $request['id'])
+                ->orderBy('name', 'asc')
+                ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+        } catch (\Throwable $exception) {
+            report($exception);
+            $childes = new \Illuminate\Pagination\LengthAwarePaginator(
+                [],
+                0,
+                (int) $request['limit'],
+                (int) $request['offset'],
+                ['path' => '']
+            );
+        }
 
         if (count($childes) > 0) {
-            $auth_user = auth('api')->user();
+            $auth_user = customer_auth_user();
             if ($auth_user) {
                 $recent_view = $this->recent_view->firstOrNew(['category_id' => $request->id, 'user_id' => $auth_user->id]);
                 $recent_view->total_category_view += 1;
@@ -115,10 +121,8 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $categories = $this->category->withoutGlobalScope('zone_wise_data')
-            ->with(['zones', 'services_by_category.variations', 'services_by_category' => function ($query) {
-                $query->ofStatus(1);
-            }])
+        $categories = $this->category->withoutGlobalScopes()
+            ->with(['zones'])
             ->ofStatus(1)
             ->ofFeatured(1)
             ->ofType('main')
@@ -126,7 +130,7 @@ class CategoryController extends Controller
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         foreach ($categories as $category) {
-            $category->services_by_category = self::variation_mapper($category->services_by_category);
+            $category->setRelation('services_by_category', collect());
         }
 
         return response()->json(response_formatter(DEFAULT_200, $categories), 200);

@@ -37,13 +37,8 @@ class ConfigController extends Controller
     public function configuration(Request $request): JsonResponse
     {
         $location = null;
-        try {
-            $location = Location::get($request->ip());
-        } catch (\Throwable $exception) {
-            report($exception);
-        }
-        $lat = is_object($location) ? ($location->latitude ?? 0) : 0;
-        $lon = is_object($location) ? ($location->longitude ?? 0) : 0;
+        $lat = 28.6139;
+        $lon = 77.2090;
 
         $playstore = business_config('app_url_playstore', 'landing_button_and_links');
         $appstore = business_config('app_url_appstore', 'landing_button_and_links');
@@ -258,6 +253,18 @@ class ConfigController extends Controller
         }
 
         return response()->json(response_formatter(ZONE_RESOURCE_404), 200);
+    }
+
+    public function offline_payment(Request $request): JsonResponse
+    {
+        $empty = [
+            'current_page' => (int) ($request['offset'] ?? 1),
+            'data' => [],
+            'total' => 0,
+            'per_page' => (int) ($request['limit'] ?? 10),
+        ];
+
+        return response()->json(response_formatter(DEFAULT_200, $empty), 200);
     }
 
     public function place_api_autocomplete(Request $request): JsonResponse

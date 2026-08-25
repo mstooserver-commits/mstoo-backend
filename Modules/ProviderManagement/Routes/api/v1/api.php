@@ -78,7 +78,7 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
 
 Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V1\Customer'], function () {
     Route::group(['prefix' => 'provider', 'as' => 'provider.'], function () {
-        Route::post('list', [ProviderController::class, 'get_provider_list']);
+        Route::match(['get', 'post'], 'list', [ProviderController::class, 'get_provider_list']);
         Route::get('list-by-sub-category', [ProviderController::class, 'get_provider_list_by_sub_category']);
     });
     Route::get('provider-details', [ProviderController::class, 'get_provider_details']);

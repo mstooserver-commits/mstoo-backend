@@ -209,28 +209,25 @@ class ServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $services = $this->service->with(['category.zonesBasicInfo', 'variations']);
-        if (auth('api')->user()) {
-            $category_ids = $this->booking->where('customer_id', auth('api')->user()->id)->get()->pluck('category_id');
+        try {
+            $services = $this->service->withoutGlobalScope('zone_wise_data')
+                ->with(['category.zonesBasicInfo', 'variations'])
+                ->active()
+                ->latest()
+                ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-            if (count($category_ids) > 0) {
-                $services = $services
-                    ->whereHas('category', function ($query) use($category_ids) {
-                        $query->whereIn('category_id', $category_ids);
-                    })
-                    ->active()
-                    ->latest()
-                    ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
-            } else {
-                $services = $services->active()->inRandomOrder()->latest()->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
-            }
-
-        } else {
-            $services = $services->active()->inRandomOrder()->latest()->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+            return response()->json(response_formatter(DEFAULT_200, self::variation_mapper($services)), 200);
+        } catch (\Throwable $exception) {
+            report($exception);
+            $empty = new \Illuminate\Pagination\LengthAwarePaginator(
+                [],
+                0,
+                (int) $request['limit'],
+                (int) $request['offset'],
+                ['path' => '']
+            );
+            return response()->json(response_formatter(DEFAULT_200, $empty), 200);
         }
-
-
-        return response()->json(response_formatter(DEFAULT_200, self::variation_mapper($services)), 200);
     }
 
     /**
