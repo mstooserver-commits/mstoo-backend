@@ -116,13 +116,17 @@
                                         <div class="max-h320-auto">
                                             <ul class="common-list after-none gap-10 d-flex flex-column">
                                                 @foreach($zone_wise_volumes as $item)
+                                                    @php
+                                                        $zoneName = optional($item->zone)->name ?? translate('unknown');
+                                                        $volumePercent = $total > 0 ? ($item['count'] * 100) / $total : 0;
+                                                    @endphp
                                                     <li>
                                                         <div class="mb-2 d-flex align-items-center justify-content-between gap-10 flex-wrap">
-                                                            <span class="zone-name">{{$item['zone']['name']}}</span>
-                                                            <span class="booking-count">{{with_decimal_point(($item['count']*100)/$total)}} % {{translate('search volume')}}</span>
+                                                            <span class="zone-name">{{ $zoneName }}</span>
+                                                            <span class="booking-count">{{ with_decimal_point($volumePercent) }} % {{translate('search volume')}}</span>
                                                         </div>
                                                         <div class="progress">
-                                                            <div class="progress-bar" role="progressbar" style="width: {{with_decimal_point(($item['count']*100)/$total)}}%" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
+                                                            <div class="progress-bar" role="progressbar" style="width: {{ with_decimal_point($volumePercent) }}%" aria-valuenow="{{ with_decimal_point($volumePercent) }}" aria-valuemin="0" aria-valuemax="100"></div>
                                                         </div>
                                                     </li>
                                                 @endforeach

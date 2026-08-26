@@ -26,56 +26,59 @@
         ? asset('storage/app/public/business/' . $loginLogo->live_values)
         : asset('assets/admin-module/img/mstoo-logo.png');
 @endphp
-<div class="login-shell">
-    <div class="row g-0">
-        <div class="col-lg-5">
-            <div class="login-visual h-100">
-                <div>
-                    <img class="login-logo-img" src="{{ $logoSrc }}" alt="MSTOO"
-                         onerror="this.src='{{ asset('assets/admin-module/img/mstoo-logo.png') }}'">
-                    <h2>{{ $loginTitle ?: 'MSTOO Admin' }}</h2>
-                    <p class="mb-0 opacity-75">{{ $loginSubtitle ?: translate('welcome_to_admin_panel') }}</p>
+<div class="login-stage">
+    <section class="login-brand">
+        <div class="login-brand-inner">
+            <img class="login-logo-img" src="{{ $logoSrc }}" alt="MSTOO"
+                 onerror="this.src='{{ asset('assets/admin-module/img/mstoo-logo.png') }}'">
+            <p class="login-kicker">Admin console</p>
+            <h1>{{ $loginTitle ?: 'MSTOO Admin' }}</h1>
+            <p class="login-lead">{{ $loginSubtitle ?: translate('welcome_to_admin_panel') }}</p>
+            <ul class="login-points">
+                <li>Manage customers, bookings, and providers</li>
+                <li>Wallet, loyalty, and subscription tools</li>
+                <li>Promotions, reports, and operations</li>
+            </ul>
+        </div>
+        <p class="login-brand-foot">Professional CRM for MSTOO operations.</p>
+    </section>
+    <section class="login-panel">
+        <div class="login-card">
+            <form action="{{route('admin.auth.login')}}" method="POST" id="login-form">
+                @csrf
+                <h2>{{translate('sign_in')}}</h2>
+                <p class="login-card-copy">{{translate('enter_your_credentials_to_continue')}}</p>
+                <div class="mb-30">
+                    <div class="form-floating">
+                        <input type="text" name="email_or_phone" class="form-control"
+                               placeholder="{{translate('email')}}" required id="email"
+                               value="{{ old('email_or_phone') }}" autocomplete="username">
+                        <label>{{translate('email')}}</label>
+                    </div>
                 </div>
-                <p class="small opacity-75 mb-0">Professional CRM for MSTOO operations.</p>
-            </div>
-        </div>
-        <div class="col-lg-7">
-            <div class="login-form-pane">
-                <form action="{{route('admin.auth.login')}}" method="POST" id="login-form">
-                    @csrf
-                    <h3 class="mb-1">{{translate('sign_in')}}</h3>
-                    <p class="text-muted mb-4">{{translate('enter_your_credentials_to_continue')}}</p>
-                    <div class="mb-30">
-                        <div class="form-floating">
-                            <input type="text" name="email_or_phone" class="form-control"
-                                   placeholder="{{translate('email')}}" required id="email"
-                                   value="{{ old('email_or_phone') }}">
-                            <label>{{translate('email')}}</label>
-                        </div>
+                <div class="mb-3">
+                    <div class="form-floating">
+                        <input type="password" name="password" class="form-control"
+                               placeholder="{{translate('password')}}" required id="password"
+                               autocomplete="current-password">
+                        <label>{{translate('password')}}</label>
+                        <span class="material-icons togglePassword">visibility_off</span>
                     </div>
-                    <div class="mb-3">
-                        <div class="form-floating">
-                            <input type="password" name="password" class="form-control"
-                                   placeholder="{{translate('password')}}" required id="password">
-                            <label>{{translate('password')}}</label>
-                            <span class="material-icons togglePassword">visibility_off</span>
-                        </div>
+                </div>
+
+                @php($recaptcha = business_config('recaptcha', 'third_party'))
+                @if(isset($recaptcha) && $recaptcha->is_active)
+                    <div class="recaptcha d-flex justify-content-center mb-4">
+                        <div id="recaptcha_element" class="w-100" data-type="image"></div>
                     </div>
+                @endif
 
-                    @php($recaptcha = business_config('recaptcha', 'third_party'))
-                    @if(isset($recaptcha) && $recaptcha->is_active)
-                        <div class="recaptcha d-flex justify-content-center mb-4">
-                            <div id="recaptcha_element" class="w-100" data-type="image"></div>
-                        </div>
-                    @endif
-
-                    <button class="btn btn--primary w-100 text-uppercase" type="submit">
-                        {{translate('sign_in')}}
-                    </button>
-                </form>
-            </div>
+                <button class="btn btn--primary w-100 text-uppercase" type="submit">
+                    {{translate('sign_in')}}
+                </button>
+            </form>
         </div>
-    </div>
+    </section>
 </div>
 
 <script src="{{asset('assets/admin-module')}}/js/jquery-3.6.0.min.js"></script>

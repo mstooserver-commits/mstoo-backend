@@ -19,6 +19,7 @@ use Modules\ServiceManagement\Http\Controllers\Api\V1\Provider\ServiceController
 */
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api', 'admin.api']], function () {
+    Route::post('service/bulk', [\Modules\ServiceManagement\Http\Controllers\Api\V1\Admin\BulkAdController::class, 'store']);
     Route::resource('service', 'ServiceController', ['only' => ['index', 'store', 'edit', 'update', 'show']]);
     Route::put('service/status/update', 'ServiceController@status_update');
     Route::delete('service/delete', 'ServiceController@destroy');
@@ -37,6 +38,7 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
 
     //  custom route by naresh for provider
     Route::post('add_service', 'ServiceController@add_service');
+    Route::post('add_services', [\Modules\ServiceManagement\Http\Controllers\Api\V1\Customer\BulkAdController::class, 'store']);
     Route::post('myservices', 'ServiceController@myservices');
     Route::get('getservice/{id}', 'ServiceController@getservice');
     Route::post('update_service/{id}', 'ServiceController@update_service');
@@ -54,6 +56,8 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
 });
 
 Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V1\Customer'], function () {
+    Route::post('ads/bulk', [\Modules\ServiceManagement\Http\Controllers\Api\V1\Customer\BulkAdController::class, 'store'])->middleware('auth:api');
+    Route::post('service/bulk', [\Modules\ServiceManagement\Http\Controllers\Api\V1\Customer\BulkAdController::class, 'store'])->middleware('auth:api');
     Route::group(['prefix' => 'service'], function () {
         Route::get('/', [CustomerServiceController::class, 'index']);
         Route::get('search', [CustomerServiceController::class, 'search']);

@@ -19,6 +19,9 @@ class ExampleTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertSee('MSTOO', false);
+        $response->assertSee('name="email_or_phone"', false);
+        $response->assertSee('login-stage', false);
+        $response->assertSee(route('admin.auth.login', [], false), false);
     }
 
     public function test_admin_login_assets_use_http_when_the_request_is_http()

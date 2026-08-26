@@ -78,19 +78,28 @@ We may release future updates so it will overwrite this file. it's better and sa
 
     /* Aside function */
     function aside() {
+        var $toggles = $(".aside-toggle");
+        var $asideBody = $(".aside .aside-body");
+        var $overlay = $(".offcanvas-overlay");
+
+        $toggles.off("click.mstooThemeAside");
+        $asideBody.off("mouseenter.mstooThemeAside mouseleave.mstooThemeAside");
+        $overlay.off("click.mstooThemeAside");
+
         if ($(window).width() > 1199) {
             /* Remove siderbar-open */
             if (body.is(".aside-open")) {
                 body.removeClass("aside-open");
+                $overlay.removeClass("aside-active");
             }
 
             /* Holded Aside on Mouseenter */
-            $(".aside .aside-body").on("mouseenter", function () {
+            $asideBody.on("mouseenter.mstooThemeAside", function () {
                 body.addClass("open-aside-folded");
             });
 
             /* Holded aside on Mouseleave */
-            $(".aside .aside-body").on("mouseleave", function () {
+            $asideBody.on("mouseleave.mstooThemeAside", function () {
                 body.removeClass("open-aside-folded");
                 if (body.hasClass("aside-folded")) {
                     $(".aside")
@@ -102,8 +111,9 @@ We may release future updates so it will overwrite this file. it's better and sa
             });
 
             /* Holded aside */
-            $(".aside-toggle").on("click", function () {
+            $toggles.on("click.mstooThemeAside", function () {
                 body.toggleClass("aside-folded");
+                body.removeClass("open-aside-folded");
                 body.find(".aside-body .has-sub-item a")
                     .siblings("ul")
                     .removeClass("open")
@@ -115,9 +125,9 @@ We may release future updates so it will overwrite this file. it's better and sa
                 body.removeClass("aside-folded open-aside-folded");
             }
             /* Open Aside */
-            $(".aside-toggle, .offcanvas-overlay").on("click", function () {
+            $toggles.add($overlay).on("click.mstooThemeAside", function () {
                 body.toggleClass("aside-open");
-                $(".offcanvas-overlay").toggleClass("aside-active");
+                $overlay.toggleClass("aside-active");
             });
         }
     }

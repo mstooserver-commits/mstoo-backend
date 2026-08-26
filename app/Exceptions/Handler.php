@@ -56,11 +56,7 @@ class Handler extends ExceptionHandler
             }
 
             if ($request->is('api/*') || $request->expectsJson()) {
-                return response()->json(response_formatter(DEFAULT_200, [
-                    'current_page' => 1,
-                    'data' => [],
-                    'total' => 0,
-                ]), 200);
+                return response()->json(response_formatter(DEFAULT_404), 404);
             }
         }
 

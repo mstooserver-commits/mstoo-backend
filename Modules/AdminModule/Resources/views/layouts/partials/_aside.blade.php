@@ -249,6 +249,12 @@
                                 {{translate('add_new_service')}}
                             </a>
                         </li>
+                        <li>
+                            <a href="{{route('admin.service.bulk')}}"
+                               class="{{request()->is('admin/service/bulk*')?'active-menu':''}}">
+                                {{translate('bulk_ads')}}
+                            </a>
+                        </li>
                     </ul>
                 </li>
             @endif

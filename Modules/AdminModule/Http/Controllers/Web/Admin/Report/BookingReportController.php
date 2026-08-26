@@ -150,11 +150,12 @@ class BookingReportController extends Controller
 
         //deterministic
         $date_range = $request['date_range'];
+        $deterministic = 'year';
         if(is_null($date_range) || $date_range == 'all_time') {
             $deterministic = 'year';
         } elseif ($date_range == 'this_week' || $date_range == 'last_week') {
             $deterministic = 'week';
-        } elseif ($date_range == 'this_month' || $date_range == 'last_month' || $date_range == 'last_15_days') {
+        } elseif ($date_range == 'today' || $date_range == 'last_7_days' || $date_range == 'this_month' || $date_range == 'last_month' || $date_range == 'last_15_days') {
             $deterministic = 'day';
         } elseif ($date_range == 'this_year' || $date_range == 'last_year' || $date_range == 'last_6_month' || $date_range == 'this_year_1st_quarter' || $date_range == 'this_year_2nd_quarter' || $date_range == 'this_year_3rd_quarter' || $date_range == 'this_year_4th_quarter') {
             $deterministic = 'month';
@@ -240,7 +241,7 @@ class BookingReportController extends Controller
                 $to = Carbon::now()->lastOfMonth();
             } elseif ($date_range == 'last_month') {
                 $to = Carbon::now()->subMonth()->endOfMonth();
-            } elseif ($date_range == 'last_15_days') {
+            } elseif ($date_range == 'last_15_days' || $date_range == 'last_7_days' || $date_range == 'today') {
                 $to = Carbon::now();
             }
 
@@ -272,6 +273,9 @@ class BookingReportController extends Controller
             } elseif ($date_range == 'last_week') {
                 $from = Carbon::now()->subWeek()->startOfWeek();
                 $to = Carbon::now()->subWeek()->endOfWeek();
+            } else {
+                $from = Carbon::now()->startOfWeek();
+                $to = Carbon::now()->endOfWeek();
             }
 
             for ($i = (int)$from->format('d'); $i <= (int)$to->format('d'); $i++) {
@@ -388,13 +392,19 @@ class BookingReportController extends Controller
             })
             ->when($request->has('date_range') && $request['date_range'] != 'custom_date', function ($query) use($request) {
                 //DATE RANGE
-                if($request['date_range'] == 'this_week') {
+                if($request['date_range'] == 'today') {
+                    $query->whereDate('created_at', Carbon::now()->toDateString());
+
+                } elseif($request['date_range'] == 'this_week') {
                     //this week
                     $query->whereBetween('created_at', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()]);
 
                 } elseif ($request['date_range'] == 'last_week') {
                     //last week
                     $query->whereBetween('created_at', [Carbon::now()->subWeek()->startOfWeek(), Carbon::now()->subWeek()->endOfWeek()]);
+
+                } elseif ($request['date_range'] == 'last_7_days') {
+                    $query->whereBetween('created_at', [Carbon::now()->subDays(7)->startOfDay(), Carbon::now()->endOfDay()]);
 
                 } elseif ($request['date_range'] == 'this_month') {
                     //this month

@@ -23,6 +23,10 @@
                                 <span class="material-icons">file_download</span>
                                 {{translate('download_excel')}}
                             </a>
+                            <a href="{{route('admin.service.bulk')}}" class="btn btn--secondary">
+                                <span class="material-icons">library_add</span>
+                                {{translate('bulk_ads')}}
+                            </a>
                             <a href="{{route('admin.service.create')}}" class="btn btn--primary">
                                 <span class="material-icons">add</span>
                                 {{translate('add_service')}}

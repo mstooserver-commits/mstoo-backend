@@ -8,6 +8,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::group(['prefix' => 'service', 'as' => 'service.'], function () {
         Route::any('list', 'ServiceController@index')->name('index');
+        Route::get('bulk', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\BulkAdController::class, 'create'])->name('bulk');
+        Route::post('bulk', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\BulkAdController::class, 'store'])->name('bulk.store');
+        Route::post('bulk/import', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\BulkAdController::class, 'import'])->name('bulk.import');
+        Route::get('bulk/template', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\BulkAdController::class, 'template'])->name('bulk.template');
         Route::any('create', 'ServiceController@create')->name('create');
         Route::post('store', 'ServiceController@store')->name('store');
         Route::any('detail/{id}', 'ServiceController@show')->name('detail');
