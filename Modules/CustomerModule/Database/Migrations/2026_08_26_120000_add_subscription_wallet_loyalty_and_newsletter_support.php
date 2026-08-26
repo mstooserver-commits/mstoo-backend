@@ -34,8 +34,15 @@ class AddSubscriptionWalletLoyaltyAndNewsletterSupport extends Migration
                 $table->string('reference')->nullable();
                 $table->timestamps();
                 $table->unique('gateway_transaction_id');
-                $table->index(['customer_id', 'payment_status', 'created_at']);
+                $table->index(['customer_id', 'payment_status', 'created_at'], 'wallet_fund_cust_status_date_idx');
             });
+        } elseif (Schema::hasTable('wallet_add_fund_requests')) {
+            try {
+                Schema::table('wallet_add_fund_requests', function (Blueprint $table) {
+                    $table->index(['customer_id', 'payment_status', 'created_at'], 'wallet_fund_cust_status_date_idx');
+                });
+            } catch (\Throwable $exception) {
+            }
         }
 
         if (Schema::hasTable('loyalty_point_transactions')) {
