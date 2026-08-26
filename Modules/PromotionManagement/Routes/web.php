@@ -48,8 +48,30 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('download', 'CampaignController@download')->name('download');
     });
 
+    Route::group(['prefix' => 'wallet-bonus', 'as' => 'wallet-bonus.'], function () {
+        Route::any('create', 'WalletBonusController@create')->name('create');
+        Route::any('list', 'WalletBonusController@index')->name('list');
+        Route::post('store', 'WalletBonusController@store')->name('store');
+        Route::get('edit/{id}', 'WalletBonusController@edit')->name('edit');
+        Route::put('update/{id}', 'WalletBonusController@update')->name('update');
+        Route::any('status-update/{id}', 'WalletBonusController@status_update')->name('status-update');
+        Route::delete('delete/{id}', 'WalletBonusController@destroy')->name('delete');
+        Route::any('download', 'WalletBonusController@download')->name('download');
+    });
+
+    Route::group(['prefix' => 'advertisement', 'as' => 'advertisement.'], function () {
+        Route::any('create', 'AdvertisementController@index')->name('create');
+        Route::any('list', 'AdvertisementController@index')->name('list');
+        Route::post('store', 'AdvertisementController@store')->name('store');
+        Route::get('edit/{id}', 'AdvertisementController@edit')->name('edit');
+        Route::put('update/{id}', 'AdvertisementController@update')->name('update');
+        Route::any('status-update/{id}', 'AdvertisementController@status_update')->name('status-update');
+        Route::delete('delete/{id}', 'AdvertisementController@destroy')->name('delete');
+    });
+
     Route::group(['prefix' => 'banner', 'as' => 'banner.'], function () {
         Route::any('create', 'BannerController@create')->name('create');
+        Route::any('list', 'BannerController@create')->name('list');
         Route::post('store', 'BannerController@store')->name('store');
         Route::get('edit/{id}', 'BannerController@edit')->name('edit');
         Route::put('update/{id}', 'BannerController@update')->name('update');

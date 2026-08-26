@@ -74,8 +74,28 @@
                                             </select>
                                         </div>
                                         <div class="form-floating mb-30" style="display: {{$banner->resource_type=='link'?'block':'none'}}" id="link_selector">
-                                            <input type="url" class="form-control" placeholder="{{translate('redirect_link')}}" value="{{$banner->redirect_link}}">
+                                            <input type="url" class="form-control" placeholder="{{translate('redirect_link')}}" name="redirect_link" value="{{$banner->redirect_link}}">
                                             <label>{{translate('redirect_link')}}</label>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-4 mb-3">
+                                                <div class="form-floating">
+                                                    <input type="date" class="form-control" name="start_date" value="{{optional($banner->start_date)->format('Y-m-d')}}">
+                                                    <label>{{translate('start_date')}}</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <div class="form-floating">
+                                                    <input type="date" class="form-control" name="end_date" value="{{optional($banner->end_date)->format('Y-m-d')}}">
+                                                    <label>{{translate('end_date')}}</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <div class="form-floating">
+                                                    <input type="number" min="0" class="form-control" name="sort_order" value="{{$banner->sort_order ?? 0}}">
+                                                    <label>{{translate('sort_order')}}</label>
+                                                </div>
+                                            </div>
                                         </div>
 
                                     </div>

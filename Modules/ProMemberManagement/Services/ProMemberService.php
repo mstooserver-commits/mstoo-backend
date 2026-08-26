@@ -4,6 +4,7 @@ namespace Modules\ProMemberManagement\Services;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Modules\CartModule\Entities\Cart;
 use Modules\ProMemberManagement\Entities\ProMemberPlan;
@@ -34,6 +35,12 @@ class ProMemberService
                 'default_service_fee' => 0,
                 'reminder_days' => 3,
                 'purchase_enabled' => 1,
+                'allow_renewal' => 1,
+                'allow_cancellation' => 1,
+                'trial_enabled' => 0,
+                'grace_period_days' => 0,
+                'auto_renew' => 0,
+                'notify_email' => 1,
             ],
         ];
     }
@@ -84,8 +91,10 @@ class ProMemberService
 
         $membership = ProMembership::query()
             ->with('plan')
-            ->currentlyActive()
             ->where('customer_id', $userId)
+            ->where('status', 'active')
+            ->where('starts_at', '<=', now())
+            ->where('expires_at', '>=', now()->subDays($this->graceDays()))
             ->latest('expires_at')
             ->first();
 
@@ -267,7 +276,11 @@ class ProMemberService
             $membership->payment_status = $paymentStatus;
             $membership->gateway_transaction_id = $gatewayTransactionId ?: $membership->gateway_transaction_id;
             $membership->starts_at = $start;
-            $membership->expires_at = (clone $start)->addDays(max(1, (int)$plan->duration_days));
+            $days = max(1, $plan ? $plan->durationInDays() : 30);
+            if (!$isRenewal && (int) ($this->config()['additional']['trial_enabled'] ?? 0) === 1 && $plan && (int) $plan->trial_days > 0) {
+                $days += (int) $plan->trial_days;
+            }
+            $membership->expires_at = (clone $start)->addDays($days);
             $membership->save();
 
             ProMemberTransaction::query()
@@ -280,9 +293,10 @@ class ProMemberService
 
             $this->creditWalletBonus($membership, $plan);
             $this->forgetMembershipCache($membership->customer_id);
-            $this->notify($membership->customer, $isRenewal ? 'renewed' : 'purchased', $membership);
+            $fresh = $membership->fresh(['plan', 'customer']);
+            $this->notify($fresh->customer, $isRenewal ? 'renewed' : 'purchased', $fresh);
 
-            return $membership->fresh(['plan', 'customer']);
+            return $fresh;
         });
     }
 
@@ -333,13 +347,51 @@ class ProMemberService
         });
     }
 
+    public function cancel(ProMembership $membership): ProMembership
+    {
+        $config = $this->config();
+        if (!(int) ($config['additional']['allow_cancellation'] ?? 1)) {
+            throw new \RuntimeException('cancellation_disabled');
+        }
+        if (!in_array($membership->status, ['active', 'pending'], true)) {
+            throw new \RuntimeException('cannot_cancel');
+        }
+
+        $membership->status = 'cancelled';
+        $membership->cancelled_at = now();
+        $membership->save();
+        $this->forgetMembershipCache($membership->customer_id);
+        $this->notify($membership->customer, 'cancelled', $membership);
+
+        return $membership;
+    }
+
+    public function loyaltyMultiplier(?string $userId): float
+    {
+        if (!$this->isProMember($userId)) {
+            return 1.0;
+        }
+        $plan = $this->activeMembership($userId)?->plan;
+        $multiplier = (float) ($plan->loyalty_multiplier ?? 1);
+        if ($plan && is_array($plan->benefits) && count($plan->benefits) > 0 && !$plan->includesBenefit('loyalty')) {
+            return 1.0;
+        }
+
+        return $multiplier > 0 ? $multiplier : 1.0;
+    }
+
+    private function graceDays(): int
+    {
+        return max(0, (int) ($this->config()['additional']['grace_period_days'] ?? 0));
+    }
+
     public function expireDue(): int
     {
         $count = 0;
         ProMembership::query()
             ->with(['customer', 'plan'])
             ->where('status', 'active')
-            ->where('expires_at', '<', now())
+            ->where('expires_at', '<', now()->subDays($this->graceDays()))
             ->chunkById(100, function ($memberships) use (&$count) {
                 foreach ($memberships as $membership) {
                     $membership->status = 'expired';
@@ -402,6 +454,10 @@ class ProMemberService
                     'service_fee' => ['enabled' => (int) ($config['benefits']['service_fee']['enabled'] ?? 0)],
                 ],
                 'default_service_fee' => (float) ($config['additional']['default_service_fee'] ?? 0),
+                'allow_renewal' => (int) ($config['additional']['allow_renewal'] ?? 1),
+                'allow_cancellation' => (int) ($config['additional']['allow_cancellation'] ?? 1),
+                'trial_enabled' => (int) ($config['additional']['trial_enabled'] ?? 0),
+                'grace_period_days' => (int) ($config['additional']['grace_period_days'] ?? 0),
                 'currency_code' => currency_code(),
                 'currency_symbol' => currency_symbol(),
             ];
@@ -427,23 +483,50 @@ class ProMemberService
 
     public function notify(?User $user, string $event, ProMembership $membership): void
     {
-        if (!$user || empty($user->fcm_token) || !function_exists('device_notification')) {
-            return;
-        }
-
         $messages = [
             'purchased' => ['Your Pro membership is now active.', 'Enjoy Pro member benefits on eligible bookings.'],
             'expired' => ['Your Pro membership has expired.', 'Renew a plan to continue enjoying Pro benefits.'],
             'expiring' => ['Your Pro membership expires soon.', 'Renew before it expires to keep your benefits.'],
             'renewed' => ['Your Pro membership has been renewed.', 'Your benefits remain active.'],
             'payment_failed' => ['Your Pro membership payment failed.', 'Please try purchasing again.'],
+            'cancelled' => ['Your Pro membership was cancelled.', 'You can purchase a plan again at any time.'],
         ];
         $pair = $messages[$event] ?? null;
-        if (!$pair) {
+        if (!$pair || !$user) {
             return;
         }
 
-        device_notification($user->fcm_token, $pair[0], $pair[1], null, $membership->id, 'pro_member');
+        $send = function () use ($user, $event, $pair, $membership) {
+            if (!empty($user->fcm_token) && function_exists('device_notification')) {
+                device_notification($user->fcm_token, $pair[0], $pair[1], null, $membership->id, 'pro_member');
+            }
+            $this->mail($user, $event, $pair);
+        };
+
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit($send);
+            return;
+        }
+
+        $send();
+    }
+
+    private function mail(?User $user, string $event, array $pair): void
+    {
+        if (!$user || empty($user->email) || !(int) ($this->config()['additional']['notify_email'] ?? 1)) {
+            return;
+        }
+
+        try {
+            Mail::send('email-templates.simple-notice', [
+                'title' => $pair[0],
+                'body' => $pair[1],
+            ], function ($message) use ($user, $event) {
+                $message->to($user->email)->subject('Mastoo subscription: ' . $event);
+            });
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     private function planAllows(?ProMemberPlan $plan, string $benefit): bool
@@ -474,7 +557,7 @@ class ProMemberService
             return;
         }
 
-        $customer = User::find($membership->customer_id);
+        $customer = User::query()->where('id', $membership->customer_id)->lockForUpdate()->first();
         if (!$customer) {
             return;
         }

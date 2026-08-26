@@ -79,6 +79,7 @@ class CouponController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $request->merge(['coupon_code' => strtoupper(trim((string) $request['coupon_code']))]);
         $validator = Validator::make($request->all(), [
             'coupon_code' => 'required|unique:coupons',
             'discount_type' => 'required|in:category,service,zone,mixed',
@@ -91,6 +92,7 @@ class CouponController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date',
             'limit_per_user' => 'required|numeric',
+            'total_usage_limit' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -106,6 +108,7 @@ class CouponController extends Controller
             $discount->min_purchase = $request['min_purchase'];
             $discount->max_discount_amount = !is_null($request['max_discount_amount']) ? $request['max_discount_amount'] : 0;
             $discount->limit_per_user = $request['limit_per_user'];
+            $discount->total_usage_limit = (int) ($request['total_usage_limit'] ?? 0);
             $discount->promotion_type = 'coupon';
             $discount->start_date = $request['start_date'];
             $discount->end_date = $request['end_date'];
@@ -161,6 +164,9 @@ class CouponController extends Controller
      */
     public function update(Request $request, string $id): JsonResponse
     {
+        if ($request->filled('coupon_code')) {
+            $request->merge(['coupon_code' => strtoupper(trim((string) $request['coupon_code']))]);
+        }
         $validator = Validator::make($request->all(), [
             'coupon_code' => ['nullable', 'unique:coupons,coupon_code,' . $id . ',id'],
             'discount_type' => 'required|in:category,service,zone,mixed',
@@ -173,6 +179,7 @@ class CouponController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date',
             'limit_per_user' => 'required|numeric',
+            'total_usage_limit' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -193,6 +200,7 @@ class CouponController extends Controller
             $discount->min_purchase = $request['min_purchase'];
             $discount->max_discount_amount = !is_null($request['max_discount_amount']) ? $request['max_discount_amount'] : 0;
             $discount->limit_per_user = $request['limit_per_user'];
+            $discount->total_usage_limit = (int) ($request['total_usage_limit'] ?? 0);
             $discount->promotion_type = 'coupon';
             $discount->start_date = $request['start_date'];
             $discount->end_date = $request['end_date'];

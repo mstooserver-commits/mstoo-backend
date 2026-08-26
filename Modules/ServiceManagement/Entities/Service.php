@@ -55,37 +55,49 @@ class Service extends Model
 
     public function service_discount(): HasMany
     {
-        return $this->hasMany(DiscountType::class, 'type_wise_id')
+        $relation = $this->hasMany(DiscountType::class, 'type_wise_id')
             ->whereHas('discount', function ($query) {
                 $query->whereIn('discount_type', ['service', 'mixed'])
                     ->where('promotion_type', 'discount')
                     ->whereDate('start_date', '<=', now())
                     ->whereDate('end_date', '>=', now())
                     ->where('is_active', 1);
-            })->whereHas('discount.discount_types', function ($query) {
-                if (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
-                    $query->where(['discount_type' => 'zone', 'type_wise_id' => request()->user()->provider->zone_id]);
-                } elseif (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
-                    $query->where(['discount_type' => 'zone', 'type_wise_id' => config('zone_id')]);
-                }
-            })->with(['discount'])->latest();
+            });
+
+        if (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
+            $relation->whereHas('discount.discount_types', function ($query) {
+                $query->where(['discount_type' => 'zone', 'type_wise_id' => request()->user()->provider->zone_id]);
+            });
+        } elseif (should_apply_customer_zone_scope()) {
+            $relation->whereHas('discount.discount_types', function ($query) {
+                $query->where(['discount_type' => 'zone', 'type_wise_id' => customer_zone_id()]);
+            });
+        }
+
+        return $relation->with(['discount'])->latest();
     }
 
     public function campaign_discount(): HasMany
     {
-        return $this->hasMany(DiscountType::class, 'type_wise_id')
+        $relation = $this->hasMany(DiscountType::class, 'type_wise_id')
             ->whereHas('discount', function ($query) {
                 $query->where('promotion_type', 'campaign')
                     ->whereDate('start_date', '<=', now())
                     ->whereDate('end_date', '>=', now())
                     ->where('is_active', 1);
-            })->whereHas('discount.discount_types', function ($query) {
-                if (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
-                    $query->where(['discount_type' => 'zone', 'type_wise_id' => request()->user()->provider->zone_id]);
-                } elseif (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
-                    $query->where(['discount_type' => 'zone', 'type_wise_id' => config('zone_id')]);
-                }
-            })->with(['discount'])->latest();
+            });
+
+        if (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
+            $relation->whereHas('discount.discount_types', function ($query) {
+                $query->where(['discount_type' => 'zone', 'type_wise_id' => request()->user()->provider->zone_id]);
+            });
+        } elseif (should_apply_customer_zone_scope()) {
+            $relation->whereHas('discount.discount_types', function ($query) {
+                $query->where(['discount_type' => 'zone', 'type_wise_id' => customer_zone_id()]);
+            });
+        }
+
+        return $relation->with(['discount'])->latest();
     }
 
     public function scopeActive($query)

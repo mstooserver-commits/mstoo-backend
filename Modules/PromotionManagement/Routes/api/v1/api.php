@@ -28,6 +28,18 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admi
         Route::delete('delete', 'BannerController@destroy');
     });
 
+    Route::resource('wallet-bonus', 'WalletBonusController', ['only' => ['index', 'store', 'edit', 'update']]);
+    Route::group(['prefix' => 'wallet-bonus', 'as' => 'wallet-bonus.'], function () {
+        Route::put('status/update', 'WalletBonusController@status_update');
+        Route::delete('delete', 'WalletBonusController@destroy');
+    });
+
+    Route::resource('advertisement', 'AdvertisementController', ['only' => ['index', 'store', 'edit', 'update']]);
+    Route::group(['prefix' => 'advertisement', 'as' => 'advertisement.'], function () {
+        Route::put('status/update', 'AdvertisementController@status_update');
+        Route::delete('delete', 'AdvertisementController@destroy');
+    });
+
     Route::resource('push-notification', 'PushNotificationController', ['only' => ['index', 'store', 'edit', 'update']]);
     Route::group(['prefix' => 'push-notification', 'as' => 'push-notification.',], function () {
         Route::put('status/update', 'PushNotificationController@status_update');
@@ -39,6 +51,14 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
     Route::group(['prefix' => 'banner', 'as' => 'banner.',], function () {
         Route::get('/', 'BannerController@index');
     });
+
+    Route::get('advertisement', 'AdvertisementController@index');
+    Route::get('discount', 'DiscountController@index');
+    Route::get('wallet-bonus/history', 'WalletBonusController@history')->middleware('auth:api');
+    Route::get('wallet-bonus', 'WalletBonusController@index');
+    Route::get('wallet-bonus-list', 'WalletBonusController@index');
+    Route::get('wallet/bonus-list', 'WalletBonusController@index');
+    Route::get('bonus-list', 'WalletBonusController@index');
 
     Route::group(['prefix' => 'notification', 'as' => 'notification.',], function () {
         Route::get('/', 'NotificationController@index');

@@ -1,18 +1,23 @@
+@php
+    $mstooLogo = ($aside_logo->live_values ?? null)
+        ? asset('storage/app/public/business/' . $aside_logo->live_values)
+        : asset('assets/admin-module/img/mstoo-logo.png');
+@endphp
 <aside class="aside">
     <div class="aside-header">
-        <a href="{{route('admin.dashboard')}}" class="logo d-flex gap-2">
-            <img src="{{asset('storage/app/public/business')}}/{{$aside_logo->live_values??""}}"
-                 onerror="this.src='{{asset('assets/placeholder.png')}}'"
+        <a href="{{route('admin.dashboard')}}" class="logo d-flex gap-2" title="MSTOO">
+            <img src="{{$mstooLogo}}"
+                 onerror="this.src='{{asset('assets/admin-module/img/mstoo-logo.png')}}'"
                  alt="MSTOO" class="main-logo">
-            <img src="{{asset('storage/app/public/business')}}/{{$aside_logo->live_values??""}}"
-                 onerror="this.src='{{asset('assets/placeholder.png')}}'"
+            <img src="{{$mstooLogo}}"
+                 onerror="this.src='{{asset('assets/admin-module/img/mstoo-logo.png')}}'"
                  alt="MSTOO" class="mobile-logo">
             <span class="brand-text d-none d-xl-inline">
                 MSTOO
                 <small>ADMIN</small>
             </span>
         </a>
-        <button class="toggle-menu-button aside-toggle border-0 bg-transparent p-0 dark-color" type="button">
+        <button class="toggle-menu-button aside-toggle border-0 bg-transparent p-0 dark-color" type="button" aria-label="{{translate('toggle_menu')}}">
             <span class="material-icons">menu</span>
         </button>
     </div>
@@ -105,36 +110,36 @@
                 || access_checker('pro_member_management', 'manage_plans')
                 || access_checker('pro_member_management', 'manage_settings')
                 || access_checker('pro_member_management', 'view_transactions'))
-                <li class="nav-category">{{translate('pro_member_management')}}</li>
+                <li class="nav-category">{{translate('subscription_management')}}</li>
                 <li class="has-sub-item {{request()->is('admin/pro-member*') ? 'sub-menu-opened' : ''}}">
                     <a href="#" class="{{request()->is('admin/pro-member*') ? 'active-menu' : ''}}">
-                        <span class="material-icons" title="{{translate('pro_member_management')}}">workspace_premium</span>
-                        <span class="link-title">{{translate('pro_member_management')}}</span>
+                        <span class="material-icons" title="{{translate('subscription_management')}}">workspace_premium</span>
+                        <span class="link-title">{{translate('subscription_management')}}</span>
                     </a>
                     <ul class="nav sub-menu">
-                        @if(access_checker('pro_member_management', 'manage_benefits'))
-                            <li>
-                                <a href="{{route('admin.pro-member.benefits')}}" class="{{request()->is('admin/pro-member/benefits')?'active-menu':''}}">
-                                    {{translate('pro_member_benefits_setup')}}
-                                </a>
-                            </li>
-                        @endif
                         @if(access_checker('pro_member_management', 'manage_plans'))
                             <li>
                                 <a href="{{route('admin.pro-member.plans.index')}}" class="{{request()->is('admin/pro-member/plans*')?'active-menu':''}}">
-                                    {{translate('plan_setup')}}
+                                    {{translate('subscription_package')}}
                                 </a>
                             </li>
                         @endif
                         <li>
                             <a href="{{route('admin.pro-member.members.index')}}" class="{{request()->is('admin/pro-member/members*')?'active-menu':''}}">
-                                {{translate('pro_member_list')}}
+                                {{translate('subscriber_list')}}
                             </a>
                         </li>
                         @if(access_checker('pro_member_management', 'manage_settings'))
                             <li>
                                 <a href="{{route('admin.pro-member.settings')}}" class="{{request()->is('admin/pro-member/settings')?'active-menu':''}}">
-                                    {{translate('additional_setup')}}
+                                    {{translate('subscription_settings')}}
+                                </a>
+                            </li>
+                        @endif
+                        @if(access_checker('pro_member_management', 'manage_benefits'))
+                            <li>
+                                <a href="{{route('admin.pro-member.benefits')}}" class="{{request()->is('admin/pro-member/benefits')?'active-menu':''}}">
+                                    {{translate('pro_member_benefits_setup')}}
                                 </a>
                             </li>
                         @endif
@@ -146,6 +151,50 @@
                             </li>
                         @endif
                     </ul>
+                </li>
+            @endif
+
+            @if(access_checker('customer_management', 'manage_wallet') || access_checker('customer_management', 'view'))
+                <li class="nav-category">{{translate('customer_wallet')}}</li>
+                <li class="has-sub-item {{request()->is('admin/customer/wallet*') ? 'sub-menu-opened' : ''}}">
+                    <a href="#" class="{{request()->is('admin/customer/wallet*') ? 'active-menu' : ''}}">
+                        <span class="material-icons" title="{{translate('customer_wallet')}}">account_balance_wallet</span>
+                        <span class="link-title">{{translate('customer_wallet')}}</span>
+                    </a>
+                    <ul class="nav sub-menu">
+                        @if(access_checker('customer_management', 'manage_wallet'))
+                            <li>
+                                <a href="{{route('admin.customer.wallet.add-fund')}}" class="{{request()->is('admin/customer/wallet/add-fund')?'active-menu':''}}">
+                                    {{translate('add_fund_to_wallet')}}
+                                </a>
+                            </li>
+                        @endif
+                        <li>
+                            <a href="{{route('admin.customer.wallet.report')}}" class="{{request()->is('admin/customer/wallet/report*')?'active-menu':''}}">
+                                {{translate('wallet_transactions')}}
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            @endif
+
+            @if(access_checker('customer_management', 'view'))
+                <li class="nav-category">{{translate('loyalty_point')}}</li>
+                <li>
+                    <a href="{{route('admin.customer.loyalty-point.report')}}" class="{{request()->is('admin/customer/loyalty-point*')?'active-menu':''}}">
+                        <span class="material-icons" title="{{translate('loyalty_point_transactions')}}">stars</span>
+                        <span class="link-title">{{translate('loyalty_point_transactions')}}</span>
+                    </a>
+                </li>
+            @endif
+
+            @if(access_checker('newsletter_management'))
+                <li class="nav-category">{{translate('newsletter')}}</li>
+                <li>
+                    <a href="{{route('admin.newsletter.index')}}" class="{{request()->is('admin/newsletter*')?'active-menu':''}}">
+                        <span class="material-icons" title="{{translate('subscribed_newsletter')}}">mail_outline</span>
+                        <span class="link-title">{{translate('subscribed_newsletter')}}</span>
+                    </a>
                 </li>
             @endif
 
@@ -206,6 +255,41 @@
 
             @if(access_checker('promotion_management'))
                 <li class="nav-category">{{translate('promotion_management')}}</li>
+                <li>
+                    <a href="{{route('admin.discount.list')}}"
+                       class="{{request()->is('admin/discount/*')?'active-menu':''}}">
+                        <span class="material-icons" title="{{translate('discounts')}}">local_offer</span>
+                        <span class="link-title">{{translate('discounts')}}</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{route('admin.coupon.list')}}"
+                       class="{{request()->is('admin/coupon/*')?'active-menu':''}}">
+                        <span class="material-icons" title="{{translate('coupons')}}">confirmation_number</span>
+                        <span class="link-title">{{translate('coupons')}}</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{route('admin.wallet-bonus.list')}}"
+                       class="{{request()->is('admin/wallet-bonus/*')?'active-menu':''}}">
+                        <span class="material-icons" title="{{translate('wallet_bonus')}}">account_balance_wallet</span>
+                        <span class="link-title">{{translate('wallet_bonus')}}</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{route('admin.campaign.list')}}"
+                       class="{{request()->is('admin/campaign/*')?'active-menu':''}}">
+                        <span class="material-icons" title="{{translate('campaigns')}}">campaign</span>
+                        <span class="link-title">{{translate('campaigns')}}</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{route('admin.advertisement.create')}}"
+                       class="{{request()->is('admin/advertisement/*')?'active-menu':''}}">
+                        <span class="material-icons" title="{{translate('advertisements')}}">ads_click</span>
+                        <span class="link-title">{{translate('advertisements')}}</span>
+                    </a>
+                </li>
                 <li>
                     <a href="{{route('admin.banner.create')}}"
                        class="{{request()->is('admin/banner/*')?'active-menu':''}}">

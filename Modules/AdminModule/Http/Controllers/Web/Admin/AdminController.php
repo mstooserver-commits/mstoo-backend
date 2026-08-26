@@ -131,7 +131,7 @@ class AdminController extends Controller
         $recent_customers = $this->user->where(['user_type' => 'customer'])
             ->latest()
             ->take(5)
-            ->get(['id', 'first_name', 'last_name', 'email', 'phone', 'created_at', 'is_active']);
+            ->get(['id', 'first_name', 'last_name', 'email', 'phone', 'created_at', 'is_active', 'profile_image']);
         $data[] = ['recent_customers' => $recent_customers];
 
         // Data for chart

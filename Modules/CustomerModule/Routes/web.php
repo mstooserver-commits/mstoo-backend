@@ -2,7 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\CustomerModule\Http\Controllers\Web\Admin\LoyaltyPointController;
+use Modules\CustomerModule\Http\Controllers\Web\Admin\NewsletterController;
 use Modules\CustomerModule\Http\Controllers\Web\Admin\WalletController;
+use Modules\CustomerModule\Http\Controllers\Web\WalletPaymentController;
 
 Route::get('about-us', 'PagesController@about_us')->name('about-us');
 Route::get('privacy-policy', 'PagesController@privacy_policy')->name('privacy-policy');
@@ -38,4 +40,16 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
             Route::any('report/download', [LoyaltyPointController::class, 'get_loyalty_point_report_download'])->name('report.download');
         });
     });
+
+    Route::group(['prefix' => 'newsletter', 'as' => 'newsletter.', 'middleware' => ['mpc:newsletter_management,view']], function () {
+        Route::get('/', [NewsletterController::class, 'index'])->name('index');
+        Route::post('store', [NewsletterController::class, 'store'])->name('store')->middleware('mpc:newsletter_management,create');
+        Route::get('status/{id}', [NewsletterController::class, 'status'])->name('status')->middleware('mpc:newsletter_management,edit');
+        Route::delete('delete/{id}', [NewsletterController::class, 'destroy'])->name('delete')->middleware('mpc:newsletter_management,delete');
+    });
+});
+
+Route::group(['prefix' => 'payment/wallet/add-fund', 'as' => 'wallet.add-fund.', 'middleware' => ['detectUser']], function () {
+    Route::get('razor-pay', [WalletPaymentController::class, 'razorPay'])->name('razor-pay');
+    Route::post('razor-pay/callback', [WalletPaymentController::class, 'razorPayCallback'])->name('razor-pay.callback')->withoutMiddleware('detectUser');
 });

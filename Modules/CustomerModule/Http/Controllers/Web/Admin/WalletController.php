@@ -47,11 +47,17 @@ class WalletController extends Controller
     {
         $request->validate([
             'user_id' => 'required|uuid',
-            'amount' => 'required|min:0|not_in:0',
-            'reference' => 'max:50',
+            'amount' => 'required|numeric|gt:0',
+            'reference' => 'nullable|max:50',
         ]);
 
-        add_fund_transaction($request['user_id'], $request['amount'], $request['reference']);
+        $user = $this->user->ofType(['customer'])->where('id', $request['user_id'])->first();
+        if (!$user) {
+            Toastr::error(DEFAULT_404['message']);
+            return back();
+        }
+
+        add_fund_transaction($user->id, $request['amount'], $request['reference']);
         admin_audit('customer.wallet_adjusted', $request['user_id'], ['amount' => $request['amount']]);
 
         Toastr::success(DEFAULT_STORE_200['message']);

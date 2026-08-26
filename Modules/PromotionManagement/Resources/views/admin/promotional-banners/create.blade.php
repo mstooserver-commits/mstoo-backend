@@ -67,6 +67,26 @@
                                             <input type="url" class="form-control" placeholder="{{translate('redirect_link')}}" name="redirect_link">
                                             <label>{{translate('redirect_link')}}</label>
                                         </div>
+                                        <div class="row">
+                                            <div class="col-md-4 mb-3">
+                                                <div class="form-floating">
+                                                    <input type="date" class="form-control" name="start_date">
+                                                    <label>{{translate('start_date')}}</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <div class="form-floating">
+                                                    <input type="date" class="form-control" name="end_date">
+                                                    <label>{{translate('end_date')}}</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <div class="form-floating">
+                                                    <input type="number" min="0" class="form-control" name="sort_order" value="0">
+                                                    <label>{{translate('sort_order')}}</label>
+                                                </div>
+                                            </div>
+                                        </div>
 
                                     </div>
                                     <div class="col-lg-6">

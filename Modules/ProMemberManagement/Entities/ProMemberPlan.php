@@ -17,8 +17,14 @@ class ProMemberPlan extends Model
         'price',
         'discounted_price',
         'duration_days',
+        'duration_unit',
+        'duration_value',
+        'trial_days',
         'benefits',
+        'features',
         'wallet_bonus',
+        'loyalty_multiplier',
+        'sort_order',
         'is_active',
     ];
 
@@ -26,8 +32,13 @@ class ProMemberPlan extends Model
         'price' => 'float',
         'discounted_price' => 'float',
         'duration_days' => 'integer',
+        'duration_value' => 'integer',
+        'trial_days' => 'integer',
         'benefits' => 'array',
+        'features' => 'array',
         'wallet_bonus' => 'float',
+        'loyalty_multiplier' => 'float',
+        'sort_order' => 'integer',
         'is_active' => 'integer',
     ];
 
@@ -50,6 +61,15 @@ class ProMemberPlan extends Model
         }
 
         return (float)$this->price;
+    }
+
+    public function durationInDays(): int
+    {
+        $value = max(1, (int) ($this->duration_value ?: $this->duration_days ?: 1));
+        $unit = $this->duration_unit ?: 'day';
+        $map = ['day' => 1, 'week' => 7, 'month' => 30, 'year' => 365];
+
+        return $value * (int) ($map[$unit] ?? 1);
     }
 
     public function includesBenefit(string $key): bool

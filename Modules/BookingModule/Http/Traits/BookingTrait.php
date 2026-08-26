@@ -624,6 +624,9 @@ trait BookingTrait
 
         //final point
         $point = $point_per_currency_unit->live_values * $point_amount;
+        if (class_exists(\Modules\ProMemberManagement\Services\ProMemberService::class)) {
+            $point *= app(\Modules\ProMemberManagement\Services\ProMemberService::class)->loyaltyMultiplier((string) $user_id);
+        }
 
         loyalty_point_transaction($user_id, $point);
     }

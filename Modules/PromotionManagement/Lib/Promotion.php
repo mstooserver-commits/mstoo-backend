@@ -362,20 +362,6 @@ if (!function_exists('fcm_error_is_invalid_token')) {
  */
 function booking_discount_calculator(mixed $keeper, $total_purchase_amount): float
 {
-    $amount = 0;
-
-    if ($keeper != null && $total_purchase_amount >= $keeper->min_purchase) {
-        if ($keeper->discount_amount_type == 'percent') {
-            $amount = ($total_purchase_amount / 100) * $keeper->discount_amount;
-
-            if ($amount > $keeper->max_discount_amount) {
-                $amount = $keeper->max_discount_amount;
-            }
-
-        } else {
-            $amount = $keeper->discount_amount;
-        }
-    }
-
-    return $amount;
+    return app(\Modules\PromotionManagement\Services\PromotionService::class)
+        ->discountAmount($keeper, (float) $total_purchase_amount);
 }

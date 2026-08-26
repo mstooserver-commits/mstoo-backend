@@ -15,6 +15,7 @@ class Discount extends Model
         'min_purchase' => 'float',
         'max_discount_amount' => 'float',
         'limit_per_user' => 'integer',
+        'total_usage_limit' => 'integer',
         'is_active' => 'integer',
     ];
 

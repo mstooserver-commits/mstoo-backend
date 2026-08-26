@@ -4,4 +4,7 @@
     @if(!empty($text))
         <p>{{ $text }}</p>
     @endif
+    @if(!empty($action) && !empty($actionLabel))
+        <a href="{{ $action }}" class="btn btn--primary">{{ $actionLabel }}</a>
+    @endif
 </div>

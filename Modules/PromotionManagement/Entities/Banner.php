@@ -17,7 +17,10 @@ class Banner extends Model
     protected $fillable = [];
 
     protected $casts = [
-        'is_active' => 'integer'
+        'is_active' => 'integer',
+        'sort_order' => 'integer',
+        'start_date' => 'date',
+        'end_date' => 'date',
     ];
 
     public function scopeOfStatus($query, $status)

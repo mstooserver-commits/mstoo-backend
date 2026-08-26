@@ -23,10 +23,26 @@
                                     <label>{{translate('plan_name')}} *</label>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="form-floating mb-30">
-                                    <input type="number" min="1" class="form-control" name="duration_days" value="{{old('duration_days', $plan->duration_days ?? 30)}}" required>
-                                    <label>{{translate('duration_days')}} *</label>
+                                    <select class="form-select" name="duration_unit">
+                                        @foreach(['day'=>'Day','week'=>'Week','month'=>'Month','year'=>'Year'] as $unit=>$label)
+                                            <option value="{{$unit}}" {{old('duration_unit', $plan->duration_unit ?? 'day')===$unit?'selected':''}}>{{translate($label)}}</option>
+                                        @endforeach
+                                    </select>
+                                    <label>{{translate('duration_unit')}}</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-floating mb-30">
+                                    <input type="number" min="1" class="form-control" name="duration_value" value="{{old('duration_value', $plan->duration_value ?? $plan->duration_days ?? 30)}}" required>
+                                    <label>{{translate('duration')}} *</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-floating mb-30">
+                                    <input type="number" min="0" class="form-control" name="trial_days" value="{{old('trial_days', $plan->trial_days ?? 0)}}">
+                                    <label>{{translate('trial_days')}}</label>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -47,6 +63,18 @@
                                     <label>{{translate('wallet_bonus')}} ({{currency_symbol()}})</label>
                                 </div>
                             </div>
+                            <div class="col-md-6">
+                                <div class="form-floating mb-30">
+                                    <input type="number" step="0.01" min="0" class="form-control" name="loyalty_multiplier" value="{{old('loyalty_multiplier', $plan->loyalty_multiplier ?? 1)}}">
+                                    <label>{{translate('loyalty_multiplier')}}</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-floating mb-30">
+                                    <input type="number" min="0" class="form-control" name="sort_order" value="{{old('sort_order', $plan->sort_order ?? 0)}}">
+                                    <label>{{translate('sort_order')}}</label>
+                                </div>
+                            </div>
                             <div class="col-md-6 mb-30">
                                 <label class="fw-medium mb-2 d-block">{{translate('status')}}</label>
                                 <input type="hidden" name="is_active" value="0">
@@ -61,10 +89,15 @@
                                     <label>{{translate('description')}}</label>
                                 </div>
                             </div>
+                            <div class="col-12">
+                                <div class="form-floating mb-30">
+                                    <textarea class="form-control" name="features_text" style="height:90px">{{old('features_text', isset($plan) && is_array($plan->features) ? implode("\n", $plan->features) : '')}}</textarea>
+                                    <label>{{translate('features')}} ({{translate('one_per_line')}})</label>
+                                </div>
+                            </div>
                             @php($selected = old('benefits', $plan->benefits ?? ['discount','coupon','service_fee']))
                             <div class="col-12">
-                                <label class="fw-medium mb-2 d-block">{{translate('plan_benefits')}}</label>
-                                @foreach(['discount'=>'Discount','coupon'=>'Pro coupons','service_fee'=>'Free service fee','wallet_bonus'=>'Wallet bonus'] as $key=>$label)
+                                @foreach(['discount'=>'Discount','coupon'=>'Pro coupons','service_fee'=>'Free service fee','wallet_bonus'=>'Wallet bonus','loyalty'=>'Loyalty multiplier'] as $key=>$label)
                                     <label class="me-4">
                                         <input type="checkbox" name="benefits[]" value="{{$key}}" {{in_array($key, (array)$selected, true)?'checked':''}}>
                                         {{translate($key === 'service_fee' ? 'service_fee' : $key)}}

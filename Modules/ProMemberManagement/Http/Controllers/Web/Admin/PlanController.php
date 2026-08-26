@@ -41,6 +41,7 @@ class PlanController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validated($request);
+        $data['features'] = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string) $request->input('features_text', '')))));
         $plan = new ProMemberPlan();
         $this->fill($plan, $data, $request);
         $plan->save();
@@ -64,7 +65,9 @@ class PlanController extends Controller
     public function update(Request $request, string $id): RedirectResponse
     {
         $plan = ProMemberPlan::findOrFail($id);
-        $this->fill($plan, $this->validated($request, $id), $request);
+        $data = $this->validated($request, $id);
+        $data['features'] = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string) $request->input('features_text', '')))));
+        $this->fill($plan, $data, $request);
         $plan->save();
         admin_audit('pro_member.plan_updated', $plan, ['name' => $plan->name]);
         Toastr::success(DEFAULT_UPDATE_200['message']);
@@ -104,23 +107,39 @@ class PlanController extends Controller
             'description' => 'nullable|string|max:1000',
             'price' => 'required|numeric|min:0',
             'discounted_price' => 'nullable|numeric|min:0',
-            'duration_days' => 'required|integer|min:1|max:3650',
+            'duration_days' => 'nullable|integer|min:1|max:3650',
+            'duration_unit' => 'nullable|in:day,week,month,year',
+            'duration_value' => 'nullable|integer|min:1|max:3650',
+            'trial_days' => 'nullable|integer|min:0',
             'wallet_bonus' => 'nullable|numeric|min:0',
+            'loyalty_multiplier' => 'nullable|numeric|min:0',
+            'sort_order' => 'nullable|integer|min:0',
             'is_active' => 'nullable|in:0,1',
             'benefits' => 'nullable|array',
-            'benefits.*' => 'in:discount,coupon,service_fee,wallet_bonus',
+            'benefits.*' => 'in:discount,coupon,service_fee,wallet_bonus,loyalty',
+            'features' => 'nullable|array',
+            'features.*' => 'nullable|string|max:120',
         ]);
     }
 
     private function fill(ProMemberPlan $plan, array $data, Request $request): void
     {
+        $unit = $data['duration_unit'] ?? 'day';
+        $value = (int) ($data['duration_value'] ?? $data['duration_days'] ?? 30);
+        $map = ['day' => 1, 'week' => 7, 'month' => 30, 'year' => 365];
         $plan->name = $data['name'];
         $plan->description = $data['description'] ?? null;
         $plan->price = $data['price'];
         $plan->discounted_price = isset($data['discounted_price']) && $data['discounted_price'] !== '' ? $data['discounted_price'] : null;
-        $plan->duration_days = $data['duration_days'];
+        $plan->duration_unit = $unit;
+        $plan->duration_value = $value;
+        $plan->duration_days = $value * (int) ($map[$unit] ?? 1);
+        $plan->trial_days = (int) ($data['trial_days'] ?? 0);
         $plan->wallet_bonus = $data['wallet_bonus'] ?? 0;
+        $plan->loyalty_multiplier = $data['loyalty_multiplier'] ?? 1;
+        $plan->sort_order = (int) ($data['sort_order'] ?? 0);
         $plan->benefits = $data['benefits'] ?? ['discount', 'coupon', 'service_fee'];
+        $plan->features = array_values(array_filter($data['features'] ?? []));
         $plan->is_active = $request->boolean('is_active') ? 1 : 0;
     }
 }

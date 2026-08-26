@@ -62,7 +62,7 @@ class ProMemberController extends Controller
             return response()->json(response_formatter(DEFAULT_200, []), 200);
         }
 
-        $plans = ProMemberPlan::query()->ofStatus(1)->latest()->get()->map(function (ProMemberPlan $plan) {
+        $plans = ProMemberPlan::query()->ofStatus(1)->orderBy('sort_order')->latest()->get()->map(function (ProMemberPlan $plan) {
             return [
                 'id' => $plan->id,
                 'name' => $plan->name,
@@ -70,9 +70,14 @@ class ProMemberController extends Controller
                 'price' => $plan->price,
                 'discounted_price' => $plan->discounted_price,
                 'payable_price' => $plan->payablePrice(),
-                'duration_days' => $plan->duration_days,
+                'duration_days' => $plan->durationInDays(),
+                'duration_unit' => $plan->duration_unit ?: 'day',
+                'duration_value' => $plan->duration_value ?: $plan->duration_days,
+                'trial_days' => $plan->trial_days,
                 'benefits' => $plan->benefits ?? [],
+                'features' => $plan->features ?? [],
                 'wallet_bonus' => $plan->wallet_bonus,
+                'loyalty_multiplier' => $plan->loyalty_multiplier,
                 'currency_code' => currency_code(),
             ];
         });
@@ -113,6 +118,9 @@ class ProMemberController extends Controller
         }
 
         $customer = $request->user();
+        if ($this->service()->activeMembership($customer->id) && !(int) ($config['additional']['allow_renewal'] ?? 1)) {
+            return response()->json(response_formatter(DEFAULT_400, ['message' => 'renewal_disabled']), 400);
+        }
 
         if ($request->payment_method === 'wallet_payment') {
             try {
@@ -157,5 +165,52 @@ class ProMemberController extends Controller
             ->withPath('');
 
         return response()->json(response_formatter(DEFAULT_200, $rows), 200);
+    }
+
+    public function show(string $id): JsonResponse
+    {
+        $plan = ProMemberPlan::query()->ofStatus(1)->where('id', $id)->first();
+        if (!$plan) {
+            return response()->json(response_formatter(DEFAULT_404), 200);
+        }
+
+        return response()->json(response_formatter(DEFAULT_200, $plan), 200);
+    }
+
+    public function history(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'limit' => 'nullable|numeric|min:1|max:200',
+            'offset' => 'nullable|numeric|min:1|max:100000',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $rows = ProMembership::query()
+            ->with('plan')
+            ->where('customer_id', $request->user()->id)
+            ->latest()
+            ->paginate((int) ($request['limit'] ?? 10), ['*'], 'offset', (int) ($request['offset'] ?? 1))
+            ->withPath('');
+
+        return response()->json(response_formatter(DEFAULT_200, $rows), 200);
+    }
+
+    public function cancel(Request $request): JsonResponse
+    {
+        $membership = $this->service()->activeMembership($request->user()->id)
+            ?: ProMembership::query()->where('customer_id', $request->user()->id)->where('status', 'pending')->latest()->first();
+        if (!$membership) {
+            return response()->json(response_formatter(DEFAULT_404), 200);
+        }
+
+        try {
+            $membership = $this->service()->cancel($membership);
+        } catch (\RuntimeException $exception) {
+            return response()->json(response_formatter(DEFAULT_400, ['message' => $exception->getMessage()]), 400);
+        }
+
+        return response()->json(response_formatter(DEFAULT_UPDATE_200, $membership), 200);
     }
 }

@@ -71,7 +71,10 @@ class BannerController extends Controller
             'service_id' => 'uuid',
             'category_id' => 'uuid',
             'resource_type' => 'required|in:service,category,link',
-            'banner_image' => 'required|image|mimes:jpeg,jpg,png,gif|max:10000'
+            'banner_image' => 'required|image|mimes:jpeg,jpg,png,gif|max:10000',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'sort_order' => 'nullable|integer|min:0',
         ]);
 
         $banner = $this->banner;
@@ -85,6 +88,9 @@ class BannerController extends Controller
         }
         $banner->resource_id = $resource_id;
         $banner->banner_image = file_uploader('banner/', 'png', $request->file('banner_image'));
+        $banner->start_date = $request['start_date'] ?: null;
+        $banner->end_date = $request['end_date'] ?: null;
+        $banner->sort_order = (int) ($request['sort_order'] ?? 0);
         $banner->is_active = 1;
         $banner->save();
 
@@ -119,7 +125,10 @@ class BannerController extends Controller
             'resource_type' => 'required|in:service,category,link',
             'service_id' => 'uuid',
             'category_id' => 'uuid',
-            'banner_image' => 'image|mimes:jpeg,jpg,png,gif|max:10000'
+            'banner_image' => 'image|mimes:jpeg,jpg,png,gif|max:10000',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'sort_order' => 'nullable|integer|min:0',
         ]);
 
         $banner = $this->banner->where(['id' => $id])->first();
@@ -133,6 +142,9 @@ class BannerController extends Controller
         }
         $banner->resource_id = $resource_id;
         $banner->banner_image = file_uploader('banner/', 'png', $request->file('banner_image'), $banner->banner_image);
+        $banner->start_date = $request['start_date'] ?: null;
+        $banner->end_date = $request['end_date'] ?: null;
+        $banner->sort_order = (int) ($request['sort_order'] ?? $banner->sort_order);
         $banner->save();
 
         Toastr::success(BANNER_UPDATE_200['message']);

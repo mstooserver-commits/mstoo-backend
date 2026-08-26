@@ -30,8 +30,8 @@ class CampaignController extends Controller
     public function index(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'limit' => 'required|numeric|min:1|max:200',
-            'offset' => 'required|numeric|min:1|max:100000'
+            'limit' => 'nullable|numeric|min:1|max:200',
+            'offset' => 'nullable|numeric|min:1|max:100000'
         ]);
 
         if ($validator->fails()) {
@@ -40,7 +40,7 @@ class CampaignController extends Controller
 
         $campaigns = $this->campaign
             ->with(['discount', 'discount.category_types.category', 'discount.service_types.service.category', 'discount.service_types.service.subCategory'])
-            ->ofStatus(1)->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+            ->ofStatus(1)->paginate((int) ($request['limit'] ?? 10), ['*'], 'offset', (int) ($request['offset'] ?? 1))->withPath('');
 
         foreach ($campaigns as $key=>$campaign) {
             //category
@@ -87,8 +87,10 @@ class CampaignController extends Controller
                     ->where('end_date', '>=', now())
                     ->where('is_active', 1);
             })
-            ->whereHas('discount.discount_types', function ($query) {
-                $query->where(['discount_type' => 'zone', 'type_wise_id' => config('zone_id')]);
+            ->when(should_apply_customer_zone_scope(), function ($query) {
+                $query->whereHas('discount.discount_types', function ($inner) {
+                    $inner->where(['discount_type' => 'zone', 'type_wise_id' => customer_zone_id()]);
+                });
             })
             ->where('id', $request['campaign_id'])
             ->first();

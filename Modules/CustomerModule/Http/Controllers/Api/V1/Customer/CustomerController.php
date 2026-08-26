@@ -290,10 +290,16 @@ class CustomerController extends Controller
         }
 
         $point_value_per_currency_unit = business_config('loyalty_point_value_per_currency_unit', 'customer_config')->live_values;
-        $loyalty_amount = $request['point']/$point_value_per_currency_unit;
+        if (!$point_value_per_currency_unit) {
+            return response()->json(response_formatter(DEFAULT_400, ['message' => 'loyalty_conversion_not_configured']), 400);
+        }
+        $loyalty_amount = $request['point'] / $point_value_per_currency_unit;
 
-        //point transfer transaction
-        loyalty_point_wallet_transfer_transaction($user->id, $request['point'], $loyalty_amount);
+        try {
+            loyalty_point_wallet_transfer_transaction($user->id, $request['point'], $loyalty_amount);
+        } catch (\RuntimeException $exception) {
+            return response()->json(response_formatter(DEFAULT_400, ['message' => $exception->getMessage()]), 400);
+        }
 
         return response()->json(response_formatter(DEFAULT_200), 200);
     }

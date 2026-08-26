@@ -659,7 +659,8 @@ const SYSTEM_MODULES = [
     ['key' => 'service_management', 'value' => 'Ads Management'],
     ['key' => 'customer_management', 'value' => 'Customer Management'],
     ['key' => 'employee_management', 'value' => 'Employee Management'],
-    ['key' => 'pro_member_management', 'value' => 'Pro Member Management'],
+    ['key' => 'pro_member_management', 'value' => 'Subscription Management'],
+    ['key' => 'newsletter_management', 'value' => 'Newsletter Management'],
     ['key' => 'promotion_management', 'value' => 'Promotion Management'],
     ['key' => 'booking_management', 'value' => 'Booking Management'],
     ['key' => 'provider_management', 'value' => 'Provider Management'],
@@ -703,14 +704,17 @@ const TRX_TYPE = [
     'withdrawable_amount' => 'withdrawable_amount',
     'paid_amount' => 'paid_amount',
     'fund_by_admin' => 'fund_by_admin',
+    'add_fund' => 'add_fund',
     'loyalty_point_earning' => 'loyalty_point_earning',
     'referral_earning' => 'referral_earning',
     'booking_placed_by_customer_wallet' => 'booking_placed_by_customer_wallet',
     'pro_membership' => 'pro_membership',
+    'wallet_bonus' => 'wallet_bonus',
 ];
 
 const WALLET_TRX_TYPE = [
     'fund_by_admin' => 'fund_by_admin',
+    'add_fund' => 'add_fund',
     'loyalty_point_earning' => 'loyalty_point_earning',
     'referral_earning' => 'referral_earning',
 //    'booking_placed_by_customer_wallet' => 'booking_placed_by_customer_wallet',
@@ -718,6 +722,7 @@ const WALLET_TRX_TYPE = [
     'wallet_refund' => 'wallet_refund',
     'pro_membership' => 'pro_membership',
     'pro_membership_bonus' => 'pro_membership_bonus',
+    'wallet_bonus' => 'wallet_bonus',
 ];
 
 

@@ -71,15 +71,12 @@ class MemberController extends Controller
     public function cancel(string $id): RedirectResponse
     {
         $membership = ProMembership::findOrFail($id);
-        if (!in_array($membership->status, ['active', 'pending'], true)) {
-            Toastr::error(translate('this_membership_cannot_be_cancelled'));
+        try {
+            $this->service->cancel($membership);
+        } catch (\RuntimeException $exception) {
+            Toastr::error(translate($exception->getMessage()));
             return back();
         }
-
-        $membership->status = 'cancelled';
-        $membership->cancelled_at = now();
-        $membership->save();
-        $this->service->forgetMembershipCache($membership->customer_id);
         admin_audit('pro_member.membership_cancelled', $membership, ['customer_id' => $membership->customer_id]);
         Toastr::success(DEFAULT_UPDATE_200['message']);
         return back();

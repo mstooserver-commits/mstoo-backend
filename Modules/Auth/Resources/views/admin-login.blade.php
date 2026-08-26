@@ -10,82 +10,68 @@
           href="{{asset('storage/app/public/business')}}/{{(business_config('business_favicon', 'business_information'))->live_values ?? null}}"/>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
-        rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link href="{{asset('assets/admin-module')}}/css/material-icons.css" rel="stylesheet"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/bootstrap.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/style.css"/>
+    <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/mstoo-admin.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/toastr.css">
 </head>
-<body>
-<div class="login-form dark-support" data-bg-img="{{asset('assets/admin-module')}}/img/media/login-bg.png">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-8 col-xl-7">
+<body class="login-page">
+@php
+    $loginTitle = business_live('login_title', 'business_information', '');
+    $loginSubtitle = business_live('login_subtitle', 'business_information', '');
+    $loginLogo = business_config('business_logo', 'business_information');
+    $logoSrc = ($loginLogo && $loginLogo->live_values)
+        ? asset('storage/app/public/business/' . $loginLogo->live_values)
+        : asset('assets/admin-module/img/mstoo-logo.png');
+@endphp
+<div class="login-shell">
+    <div class="row g-0">
+        <div class="col-lg-5">
+            <div class="login-visual h-100">
+                <div>
+                    <img class="login-logo-img" src="{{ $logoSrc }}" alt="MSTOO"
+                         onerror="this.src='{{ asset('assets/admin-module/img/mstoo-logo.png') }}'">
+                    <h2>{{ $loginTitle ?: 'MSTOO Admin' }}</h2>
+                    <p class="mb-0 opacity-75">{{ $loginSubtitle ?: translate('welcome_to_admin_panel') }}</p>
+                </div>
+                <p class="small opacity-75 mb-0">Professional CRM for MSTOO operations.</p>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="login-form-pane">
                 <form action="{{route('admin.auth.login')}}" method="POST" id="login-form">
                     @csrf
-                    <div class="card my-5 ov-hidden">
-                        <div class="login-wrap">
-                            <div class="login-left">
-                                <img class="login-img"
-                                     src="{{asset('assets/admin-module')}}/img/media/login-img.png"
-                                     alt="">
-                            </div>
-                            <div class="login-right-wrap">
-                                <div class="login-right">
-                                    <div class="mb-3">
-                                        @php($loginTitle = business_live('login_title', 'business_information', ''))
-                                        @php($loginSubtitle = business_live('login_subtitle', 'business_information', ''))
-                                        @php($loginLogo = business_config('business_logo', 'business_information'))
-                                        @if($loginTitle)
-                                            <h3 class="mb-1">{{ $loginTitle }}</h3>
-                                        @endif
-                                        @if($loginSubtitle)
-                                            <p class="text-muted mb-3">{{ $loginSubtitle }}</p>
-                                        @endif
-                                        @if($loginLogo && $loginLogo->live_values)
-                                            <div class="mb-3">
-                                                <img src="{{ asset('storage/app/public/business') }}/{{ $loginLogo->live_values }}"
-                                                     alt="MSTOO"
-                                                     style="max-height:42px;"
-                                                     onerror="this.src='{{ asset('assets/placeholder.png') }}'">
-                                            </div>
-                                        @endif
-                                        <div class="mb-30">
-                                            <div class="form-floating">
-                                                <input type="text" name="email_or_phone" class="form-control"
-                                                       placeholder="{{translate('email')}}" required id="email"
-                                                       value="{{ old('email_or_phone') }}">
-                                                <label>{{translate('email')}}</label>
-                                            </div>
-                                        </div>
-                                        <div class="mb-3">
-                                            <div class="form-floating">
-                                                <input type="password" name="password" class="form-control"
-                                                       placeholder="{{translate('password')}}" required id="password">
-                                                <label>{{translate('password')}}</label>
-                                                <span class="material-icons togglePassword">visibility_off</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    @php($recaptcha = business_config('recaptcha', 'third_party'))
-                                    @if(isset($recaptcha) && $recaptcha->is_active)
-                                        <div class="recaptcha d-flex justify-content-center mb-4">
-                                            <div id="recaptcha_element" class="w-100" data-type="image"></div>
-                                        </div>
-                                    @endif
-
-                                    <div class="d-flex justify-content-center">
-                                        <button class="btn btn--primary radius-50 text-uppercase" type="submit">
-                                            {{translate('sign_in')}}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                    <h3 class="mb-1">{{translate('sign_in')}}</h3>
+                    <p class="text-muted mb-4">{{translate('enter_your_credentials_to_continue')}}</p>
+                    <div class="mb-30">
+                        <div class="form-floating">
+                            <input type="text" name="email_or_phone" class="form-control"
+                                   placeholder="{{translate('email')}}" required id="email"
+                                   value="{{ old('email_or_phone') }}">
+                            <label>{{translate('email')}}</label>
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <div class="form-floating">
+                            <input type="password" name="password" class="form-control"
+                                   placeholder="{{translate('password')}}" required id="password">
+                            <label>{{translate('password')}}</label>
+                            <span class="material-icons togglePassword">visibility_off</span>
+                        </div>
+                    </div>
+
+                    @php($recaptcha = business_config('recaptcha', 'third_party'))
+                    @if(isset($recaptcha) && $recaptcha->is_active)
+                        <div class="recaptcha d-flex justify-content-center mb-4">
+                            <div id="recaptcha_element" class="w-100" data-type="image"></div>
+                        </div>
+                    @endif
+
+                    <button class="btn btn--primary w-100 text-uppercase" type="submit">
+                        {{translate('sign_in')}}
+                    </button>
                 </form>
             </div>
         </div>

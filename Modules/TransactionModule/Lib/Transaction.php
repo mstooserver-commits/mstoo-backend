@@ -698,19 +698,22 @@ if (!function_exists('withdraw_request_deny_transaction')) {
 
 //*** FUND ***
 if (!function_exists('add_fund_transaction')) {
-    function add_fund_transaction($user_id, $amount, $reference) {
+    function add_fund_transaction($user_id, $amount, $reference, $trx_type = null) {
 
-        DB::transaction(function () use ($user_id, $amount, $reference) {
+        DB::transaction(function () use ($user_id, $amount, $reference, $trx_type) {
 
             //Provider transactions
-            $user = User::where('id', $user_id)->first();
-            $user->wallet_balance += $amount;
+            $user = User::where('id', $user_id)->lockForUpdate()->first();
+            if (!$user) {
+                return;
+            }
+            $user->wallet_balance = round((float) $user->wallet_balance + $amount, 2);
             $user->save();
 
-            Transaction::create([
+            $trx = Transaction::create([
                 'ref_trx_id' => null,
                 'booking_id' => null,
-                'trx_type' => TRX_TYPE['fund_by_admin'],
+                'trx_type' => $trx_type ?: TRX_TYPE['fund_by_admin'],
                 'debit' => 0,
                 'credit' => $amount,
                 'balance' => $user->wallet_balance,
@@ -720,6 +723,15 @@ if (!function_exists('add_fund_transaction')) {
                 'to_user_account' => 'user_wallet',
                 'reference_note' => $reference,
             ]);
+
+            if (class_exists(\Modules\PromotionManagement\Services\PromotionService::class)) {
+                try {
+                    app(\Modules\PromotionManagement\Services\PromotionService::class)
+                        ->grantAddFundBonus($user, (float) $amount, $trx->id);
+                } catch (\Throwable $exception) {
+                    report($exception);
+                }
+            }
 
         });
     }
@@ -809,34 +821,38 @@ if (!function_exists('loyalty_point_wallet_transfer_transaction')) {
         DB::transaction(function () use ($user_id, $point, $amount) {
 
             //Customer (loyalty_point update)
-            $user = User::find($user_id);
-            $user->loyalty_point -= $point;
-            $user->wallet_balance += $amount;
+            $user = User::where('id', $user_id)->lockForUpdate()->first();
+            if (!$user) {
+                return;
+            }
+            if ($point > $user->loyalty_point) {
+                throw new \RuntimeException('insufficient_loyalty_points');
+            }
+            $user->loyalty_point = round((float) $user->loyalty_point - $point, 2);
+            $user->wallet_balance = round((float) $user->wallet_balance + $amount, 2);
             $user->save();
 
-            //transaction
             Transaction::create([
                 'ref_trx_id' => null,
                 'booking_id' => null,
                 'trx_type' => TRX_TYPE['loyalty_point_earning'],
                 'debit' => 0,
                 'credit' => $amount,
-                'balance' => $amount,
+                'balance' => $user->wallet_balance,
                 'from_user_id' => $user_id,
                 'to_user_id' => $user_id,
                 'from_user_account' => null,
                 'to_user_account' => 'user_wallet',
-                'reference_note' => null,
+                'reference_note' => 'Loyalty points converted to wallet',
             ]);
 
-            //transaction
             LoyaltyPointTransaction::create([
                 'user_id' => $user_id,
                 'debit' => $point,
                 'credit' => 0,
                 'balance' => $user->loyalty_point,
-                'reference' => null,
-                'transaction_type' => null,
+                'reference' => 'wallet_conversion',
+                'transaction_type' => 'conversion',
             ]);
         });
     }
@@ -848,18 +864,20 @@ if (!function_exists('loyalty_point_transaction')) {
         DB::transaction(function () use ($user_id, $point) {
 
             //point update
-            $user = User::find($user_id);
-            $user->loyalty_point += $point;
+            $user = User::where('id', $user_id)->lockForUpdate()->first();
+            if (!$user) {
+                return;
+            }
+            $user->loyalty_point = round((float) $user->loyalty_point + $point, 2);
             $user->save();
 
-            //transaction
             LoyaltyPointTransaction::create([
                 'user_id' => $user_id,
                 'debit' => 0,
                 'credit' => $point,
                 'balance' => $user->loyalty_point,
                 'reference' => null,
-                'transaction_type' => null,
+                'transaction_type' => 'earn',
             ]);
         });
     }

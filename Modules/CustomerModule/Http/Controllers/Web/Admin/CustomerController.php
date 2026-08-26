@@ -546,7 +546,7 @@ class CustomerController extends Controller
         if ($filters['search'] !== '') {
             $term = str_replace(['%', '_'], ['\%', '\_'], $filters['search']);
             $like = '%' . $term . '%';
-            $query->where(function ($query) use ($like, $term) {
+            $query->where(function ($query) use ($like, $term, $filters) {
                 $query->whereNameLike($filters['search'])
                     ->orWhere('email', 'like', $like)
                     ->orWhere('phone', 'like', $like)

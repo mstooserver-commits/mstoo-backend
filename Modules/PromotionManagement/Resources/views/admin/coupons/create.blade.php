@@ -181,6 +181,14 @@
                                                 </div>
                                             </div>
                                         </div>
+                                        <div class="col-lg-4">
+                                            <div class="mb-30">
+                                                <div class="form-floating">
+                                                    <input type="number" class="form-control" name="total_usage_limit" min="0" value="0">
+                                                    <label>{{translate('usage_limit')}}</label>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="d-flex justify-content-end gap-3">

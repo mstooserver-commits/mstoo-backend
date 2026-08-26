@@ -29,7 +29,10 @@ class AdminModuleServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
-        View::composer('adminmodule::layouts.partials._aside', AdminAsideComposer::class);
+        View::composer([
+            'adminmodule::layouts.partials._aside',
+            'adminmodule::layouts.partials._header',
+        ], AdminAsideComposer::class);
     }
 
     /**

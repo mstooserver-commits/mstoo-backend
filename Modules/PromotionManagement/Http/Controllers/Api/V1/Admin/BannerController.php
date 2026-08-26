@@ -66,7 +66,11 @@ class BannerController extends Controller
             'banner_title' => 'required',
             'resource_type' => 'required|in:service,category,link',
             'resource_id' => 'uuid',
-            'banner_image' => 'required|image|mimes:jpeg,jpg,png,gif|max:10000'
+            'banner_image' => 'required|image|mimes:jpeg,jpg,png,gif|max:10000',
+            'description' => 'nullable|string',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'sort_order' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -79,6 +83,10 @@ class BannerController extends Controller
         $banner->resource_type = $request['resource_type'];
         $banner->resource_id = $request['resource_id'];
         $banner->banner_image = file_uploader('banner/', 'png', $request->file('banner_image'));
+        $banner->description = $request['description'];
+        $banner->start_date = $request['start_date'] ?: null;
+        $banner->end_date = $request['end_date'] ?: null;
+        $banner->sort_order = (int) ($request['sort_order'] ?? 0);
         $banner->is_active = 1;
         $banner->save();
 
@@ -111,7 +119,11 @@ class BannerController extends Controller
             'banner_title' => 'required',
             'resource_type' => 'required|in:service,category,link',
             'resource_id' => 'uuid',
-            'banner_image' => 'image|mimes:jpeg,jpg,png,gif|max:10000'
+            'banner_image' => 'image|mimes:jpeg,jpg,png,gif|max:10000',
+            'description' => 'nullable|string',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'sort_order' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -124,6 +136,10 @@ class BannerController extends Controller
         $banner->resource_type = $request['resource_type'];
         $banner->resource_id = $request['resource_id'];
         $banner->banner_image = file_uploader('banner/', 'png', $request->file('banner_image'), $banner->banner_image);
+        $banner->description = $request['description'] ?? $banner->description;
+        $banner->start_date = $request['start_date'] ?: null;
+        $banner->end_date = $request['end_date'] ?: null;
+        $banner->sort_order = (int) ($request['sort_order'] ?? $banner->sort_order);
         $banner->save();
 
         return response()->json(response_formatter(BANNER_UPDATE_200), 200);

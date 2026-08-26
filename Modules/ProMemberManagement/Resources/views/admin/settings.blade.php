@@ -36,7 +36,51 @@
                                 <input type="number" step="0.01" min="0" class="form-control" name="default_service_fee" value="{{old('default_service_fee', $config['additional']['default_service_fee'])}}" required>
                                 <small class="text-muted">{{translate('charged_on_bookings_for_normal_customers._waived_for_pro_members_when_the_service_fee_benefit_is_on.')}}</small>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
+                                <label class="fw-medium mb-2 d-block">{{translate('allow_renewal')}}</label>
+                                <input type="hidden" name="allow_renewal" value="0">
+                                <label class="switcher">
+                                    <input class="switcher_input" type="checkbox" name="allow_renewal" value="1" {{($config['additional']['allow_renewal']??1)?'checked':''}}>
+                                    <span class="switcher_control"></span>
+                                </label>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="fw-medium mb-2 d-block">{{translate('allow_cancellation')}}</label>
+                                <input type="hidden" name="allow_cancellation" value="0">
+                                <label class="switcher">
+                                    <input class="switcher_input" type="checkbox" name="allow_cancellation" value="1" {{($config['additional']['allow_cancellation']??1)?'checked':''}}>
+                                    <span class="switcher_control"></span>
+                                </label>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="fw-medium mb-2 d-block">{{translate('trial_availability')}}</label>
+                                <input type="hidden" name="trial_enabled" value="0">
+                                <label class="switcher">
+                                    <input class="switcher_input" type="checkbox" name="trial_enabled" value="1" {{($config['additional']['trial_enabled']??0)?'checked':''}}>
+                                    <span class="switcher_control"></span>
+                                </label>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="fw-medium mb-2 d-block">{{translate('email_notifications')}}</label>
+                                <input type="hidden" name="notify_email" value="0">
+                                <label class="switcher">
+                                    <input class="switcher_input" type="checkbox" name="notify_email" value="1" {{($config['additional']['notify_email']??1)?'checked':''}}>
+                                    <span class="switcher_control"></span>
+                                </label>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="fw-medium mb-2 d-block">{{translate('auto_renewal')}}</label>
+                                <input type="hidden" name="auto_renew" value="0">
+                                <label class="switcher">
+                                    <input class="switcher_input" type="checkbox" name="auto_renew" value="1" {{($config['additional']['auto_renew']??0)?'checked':''}}>
+                                    <span class="switcher_control"></span>
+                                </label>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="fw-medium mb-2">{{translate('grace_period_days')}}</label>
+                                <input type="number" min="0" max="30" class="form-control" name="grace_period_days" value="{{old('grace_period_days', $config['additional']['grace_period_days'] ?? 0)}}">
+                            </div>
+                            <div class="col-md-4">
                                 <label class="fw-medium mb-2">{{translate('expiry_reminder_days')}}</label>
                                 <input type="number" min="1" max="30" class="form-control" name="reminder_days" value="{{old('reminder_days', $config['additional']['reminder_days'])}}" required>
                             </div>
