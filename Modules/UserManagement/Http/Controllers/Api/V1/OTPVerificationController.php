@@ -18,8 +18,6 @@ use Modules\UserManagement\Emails\OTPMail;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserVerification;
 
-use Illuminate\Support\Facades\Log;
-
 
 class OTPVerificationController extends Controller
 {
@@ -187,16 +185,18 @@ class OTPVerificationController extends Controller
             }
 
             $this->user_verification->whereIn('identity', $identityCandidates)->delete();
-            // return response()->json(response_formatter(OTP_VERIFICATION_SUCCESS_200), 200);
             $user = $this->user
             ->where(['phone' => $identity])
-            // ->orWhere('email', $request['email_or_phone'])
-            // ->ofType(CUSTOMER_USER_TYPES)
             ->first();
 
-            Log::info($identity);
-            Log::info($request['email_or_phone']);
-            Log::info($user);
+            if (!$user && $request['identity_type'] === 'phone') {
+                $user = $this->user->whereIn('phone', $identityCandidates)->first();
+            }
+
+            if (!$user) {
+                return response()->json(response_formatter(DEFAULT_404), 404);
+            }
+
             return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, CUSTOMER_PANEL_ACCESS)), 200);
         }
         else{
