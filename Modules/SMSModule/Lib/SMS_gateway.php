@@ -43,12 +43,31 @@ class SMS_gateway
 
     private static function sandeshCredential(?array $config, string $configKey, string $envKey, string $default = ''): string
     {
-        $value = $config[$configKey] ?? '';
-        if ($value !== '' && $value !== 'data') {
+        $value = trim((string) ($config[$configKey] ?? ''));
+        if ($value !== '' && strcasecmp($value, 'data') !== 0) {
             return $value;
         }
 
-        return (string) env($envKey, $default);
+        $fromConfig = config(self::sandeshConfigPath($envKey));
+        if (is_string($fromConfig) && trim($fromConfig) !== '') {
+            return trim($fromConfig);
+        }
+
+        return $default;
+    }
+
+    private static function sandeshConfigPath(string $envKey): string
+    {
+        return match ($envKey) {
+            'SANDESH_SMS_API_KEY' => 'services.sandesh.api_key',
+            'SANDESH_SMS_USERNAME' => 'services.sandesh.username',
+            'SANDESH_SMS_SIGNATURE' => 'services.sandesh.signature',
+            'SANDESH_SMS_MSGTYPE' => 'services.sandesh.msgtype',
+            'SANDESH_SMS_ENTITY_ID' => 'services.sandesh.entity_id',
+            'SANDESH_SMS_TEMPLATE_ID' => 'services.sandesh.template_id',
+            'SANDESH_SMS_OTP_TEMPLATE' => 'services.sandesh.otp_template',
+            default => 'services.sandesh.api_key',
+        };
     }
 
     public static function generateOtp(): string
