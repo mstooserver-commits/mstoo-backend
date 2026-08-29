@@ -26,6 +26,23 @@ Route::get('/', function () {
     return redirect('admin/auth/login');
 })->name('home');
 
+Route::get('storage/app/public/{path}', function (string $path) {
+    abort_if(str_contains($path, '..') || str_contains($path, "\0"), 404);
+    $file = storage_path('app/public/' . $path);
+    abort_unless(is_file($file), 404);
+
+    return response()->file($file);
+})->where('path', '.*');
+
+Route::get('storage/{path}', function (string $path) {
+    abort_if(str_contains($path, '..') || str_contains($path, "\0"), 404);
+    abort_if(str_starts_with($path, 'app/public/'), 404);
+    $file = storage_path('app/public/' . $path);
+    abort_unless(is_file($file), 404);
+
+    return response()->file($file);
+})->where('path', '.*');
+
 Route::get('page/about-us', [LandingController::class, 'about_us'])->name('page.about-us');
 Route::get('page/privacy-policy', [LandingController::class, 'privacy_policy'])->name('page.privacy-policy');
 Route::get('page/terms-and-conditions', [LandingController::class, 'terms_and_conditions'])->name('page.terms-and-conditions');

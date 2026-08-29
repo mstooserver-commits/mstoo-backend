@@ -18,6 +18,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('edit/{id}', 'ServiceController@edit')->name('edit');
         Route::put('update/{id}', 'ServiceController@update')->name('update');
         Route::any('status-update/{id}', 'ServiceController@status_update')->name('status-update');
+        Route::any('feature-update/{id}', 'ServiceController@feature_update')->name('feature-update');
         Route::delete('delete/{id}', 'ServiceController@destroy')->name('delete');
         Route::any('download', 'ServiceController@download')->name('download');
 

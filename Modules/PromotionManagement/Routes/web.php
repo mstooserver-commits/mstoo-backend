@@ -95,6 +95,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('settings', 'PushNotificationController@settings')->name('settings');
         Route::put('settings', 'PushNotificationController@updateSettings')->name('settings-update');
         Route::get('channels', 'PushNotificationController@channels')->name('channels');
+        Route::put('channels', 'PushNotificationController@saveChannels')->name('channels.save');
     });
 
     Route::group(['prefix' => 'notifications', 'as' => 'notifications.'], function () {

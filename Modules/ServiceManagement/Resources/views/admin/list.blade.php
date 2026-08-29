@@ -29,7 +29,7 @@
                             </a>
                             <a href="{{route('admin.service.create')}}" class="btn btn--primary">
                                 <span class="material-icons">add</span>
-                                {{translate('add_service')}}
+                                {{translate('add_ads')}}
                             </a>
                         </div>
                     </div>
@@ -55,10 +55,16 @@
                                     {{translate('inactive')}}
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{$status=='featured'?'active':''}}"
+                                   href="{{url()->current()}}?status=featured">
+                                    {{translate('featured')}}
+                                </a>
+                            </li>
                         </ul>
 
                         <div class="d-flex gap-2 fw-medium">
-                            <span class="opacity-75">{{translate('Total_Services')}}:</span>
+                            <span class="opacity-75">{{translate('total_ads')}}:</span>
                             <span class="title-color">{{$services->total()}}</span>
                         </div>
                     </div>
@@ -107,32 +113,47 @@
                                             <thead>
                                             <tr>
                                                 <th>{{translate('SL')}}</th>
-                                                <th>{{translate('ad_name')}}</th>
-                                                <th>{{translate('posted_by')}}</th>
+                                                <th>{{translate('image')}}</th>
+                                                <th>{{translate('ad_title')}}</th>
+                                                <th>{{translate('category')}}</th>
+                                                <th>{{translate('user')}}</th>
+                                                <th>{{translate('price')}}</th>
                                                 <th>{{translate('location')}}</th>
-                                                <th>{{translate('date_posted')}}</th>
+                                                <th>{{translate('featured')}}</th>
+                                                <th>{{translate('created_date')}}</th>
                                                 <th>{{translate('status')}}</th>
                                                 <th>{{translate('action')}}</th>
                                             </tr>
                                             </thead>
                                             <tbody>
                                             @forelse($services as $key=>$service)
+                                                @php $price = optional($service->variations)->min('price'); @endphp
                                                 <tr>
                                                     <td>{{$services->firstItem()+$key}}</td>
+                                                    <td>
+                                                        <img src="{{asset('storage/app/public/service/'.$service->cover_image)}}" alt="" width="48" height="48" class="rounded" style="object-fit:cover"
+                                                             onerror="this.src='{{asset('assets/admin-module/img/media/upload-file.png')}}'">
+                                                    </td>
                                                     <td>{{$service->name}}</td>
+                                                    <td>{{optional($service->category)->name ?: '-'}}</td>
                                                     <td>
                                                         @if($service->poster)
                                                             <div class="fw-medium">{{$service->posterName() ?: '-'}}</div>
                                                             <div class="fs-12 text-muted">{{$service->poster->email}}</div>
-                                                            @if($service->poster->phone)
-                                                                <div class="fs-12">{{$service->poster->phone}}</div>
-                                                            @endif
                                                         @else
                                                             <span class="text-muted">{{translate('not_available')}}</span>
                                                         @endif
                                                     </td>
+                                                    <td>{{ $price ? (function_exists('currency_symbol') ? currency_symbol() : '₹').number_format((float)$price) : '-' }}</td>
                                                     <td>{{$service->adLocation() ?: translate('not_available')}}</td>
-                                                    <td>{{optional($service->created_at)->format('d M Y, h:i A')}}</td>
+                                                    <td>
+                                                        @if(($service->is_featured ?? '') === 'yes')
+                                                            <span class="badge bg-warning text-dark">{{translate('featured')}}</span>
+                                                        @else
+                                                            <span class="text-muted">-</span>
+                                                        @endif
+                                                    </td>
+                                                    <td>{{optional($service->created_at)->format('d M Y')}}</td>
                                                     <td>
                                                         <label class="switcher" data-bs-toggle="modal"
                                                                data-bs-target="#deactivateAlertModal">
@@ -143,22 +164,25 @@
                                                         </label>
                                                     </td>
                                                     <td>
-                                                        <div class="table-actions">
-                                                            <a href="{{route('admin.service.edit',[$service->id])}}"
-                                                               class="table-actions_edit demo_check">
+                                                        <div class="mstoo-table-actions">
+                                                            <a href="{{route('admin.service.detail',[$service->id])}}" class="btn btn-sm btn--secondary" title="{{translate('view')}}">
+                                                                <span class="material-icons">visibility</span>
+                                                            </a>
+                                                            <a href="{{route('admin.service.edit',[$service->id])}}" class="btn btn-sm btn--secondary" title="{{translate('edit')}}">
                                                                 <span class="material-icons">edit</span>
                                                             </a>
+                                                            <a href="{{route('admin.discount.create', ['service_id' => $service->id])}}" class="btn btn-sm btn--secondary" title="{{translate('add_discount')}}">
+                                                                <span class="material-icons">local_offer</span>
+                                                            </a>
+                                                            <a href="{{route('admin.service.feature-update',[$service->id])}}" class="btn btn-sm btn--secondary" title="{{translate('feature')}}">
+                                                                <span class="material-icons">star</span>
+                                                            </a>
                                                             <button type="button"
-                                                                    @if(config('app.env')!='demo')
-                                                                    onclick="form_alert('delete-{{$service->id}}','{{translate('want_to_delete_this_service')}}?')"
-                                                                    @endif
-                                                                    class="table-actions_delete bg-transparent border-0 p-0 demo_check">
+                                                                    onclick="form_alert('delete-{{$service->id}}','{{translate('want_to_delete_this_ad')}}?')"
+                                                                    class="btn btn-sm btn--secondary text-danger">
                                                                 <span class="material-icons">delete</span>
                                                             </button>
-                                                            <form
-                                                                action="{{route('admin.service.delete',[$service->id])}}"
-                                                                method="post" id="delete-{{$service->id}}"
-                                                                class="hidden">
+                                                            <form action="{{route('admin.service.delete',[$service->id])}}" method="post" id="delete-{{$service->id}}" class="hidden">
                                                                 @csrf
                                                                 @method('DELETE')
                                                             </form>
@@ -167,8 +191,8 @@
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td colspan="7">
-                                                        @include('adminmodule::layouts.partials._empty', ['icon' => 'design_services', 'title' => translate('No_data_found')])
+                                                    <td colspan="11">
+                                                        @include('adminmodule::layouts.partials._empty', ['icon' => 'campaign', 'title' => translate('No_data_found')])
                                                     </td>
                                                 </tr>
                                             @endforelse

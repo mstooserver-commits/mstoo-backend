@@ -11,11 +11,11 @@ $logo = business_config('business_logo', 'business_information');
     <!-- Aside Header -->
     <div class="aside-header">
         <!-- Logo -->
-        <a href="{{route('admin.dashboard')}}" class="logo d-flex gap-2">
+        <a href="{{route('admin.dashboard')}}" class="">
             <img src="{{asset('storage/app/public/business')}}/{{$logo->live_values??""}}"
                  onerror="this.src='{{asset('assets/placeholder.png')}}'"
                  style="max-height: 50px" alt=""
-                 class="main-logo">
+                 class="">
             <img src="{{asset('storage/app/public/business')}}/{{$logo->live_values??""}}"
                  onerror="this.src='{{asset('assets/placeholder.png')}}'"
                  style="max-height: 40px" alt=""

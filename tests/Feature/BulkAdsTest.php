@@ -37,7 +37,11 @@ class BulkAdsTest extends TestCase
             ->get('/admin/service/bulk')
             ->assertOk()
             ->assertSee('Excel import', false)
-            ->assertSee('Quick add', false);
+            ->assertSee('Quick add', false)
+            ->assertSee('admin/discount/create', false)
+            ->assertSee('admin/coupon/create', false)
+            ->assertSee('admin/campaign/create', false)
+            ->assertSee('data-remove-row', false);
 
         $this->actingAs($admin)
             ->get('/admin/service/bulk/template')

@@ -13,11 +13,28 @@
             </div>
         </div>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex flex-wrap gap-2">
+        @if(access_checker('promotion_management', 'create'))
+            <a href="{{route('admin.discount.create', ['customer_id' => $customer->id])}}" class="btn btn--secondary">
+                <span class="material-icons">local_offer</span> {{translate('add_discount')}}
+            </a>
+            <a href="{{route('admin.coupon.create', ['customer_id' => $customer->id])}}" class="btn btn--secondary">
+                <span class="material-icons">confirmation_number</span> {{translate('add_coupon')}}
+            </a>
+        @endif
         @if(access_checker('customer_management', 'edit'))
             <a href="{{route('admin.customer.edit', [$customer->id])}}" class="btn btn--primary">
                 <span class="material-icons">edit</span> {{translate('edit')}}
             </a>
+        @endif
+        @if(access_checker('customer_management', 'delete'))
+            <button type="button" class="btn btn--secondary text-danger" onclick="form_alert('customer-delete-{{$customer->id}}','{{translate('want_to_delete_this_customer')}}?')">
+                <span class="material-icons">delete</span> {{translate('delete')}}
+            </button>
+            <form id="customer-delete-{{$customer->id}}" class="d-none" method="POST" action="{{route('admin.customer.delete',[$customer->id])}}">
+                @csrf
+                @method('DELETE')
+            </form>
         @endif
         <a href="{{route('admin.customer.index')}}" class="btn btn--secondary">{{translate('back')}}</a>
     </div>

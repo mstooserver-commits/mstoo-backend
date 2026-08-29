@@ -10,6 +10,9 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Modules\PromotionManagement\Entities\Campaign;
+use Modules\PromotionManagement\Entities\Coupon;
+use Modules\PromotionManagement\Entities\Discount;
 use Modules\ServiceManagement\Services\PostedAdService;
 use Modules\UserManagement\Entities\User;
 use Rap2hpoutre\FastExcel\FastExcel;
@@ -39,7 +42,32 @@ class BulkAdController extends Controller
             ->limit(200)
             ->get(['id', 'first_name', 'last_name', 'email', 'phone']);
 
-        return view('servicemanagement::admin.bulk', compact('subCategories', 'customers'));
+        $discounts = Discount::query()
+            ->ofPromotionTypes('discount')
+            ->ofStatus(1)
+            ->latest()
+            ->limit(100)
+            ->get(['id', 'discount_title']);
+
+        $campaigns = Campaign::query()
+            ->ofStatus(1)
+            ->latest()
+            ->limit(100)
+            ->get(['id', 'campaign_name', 'discount_id']);
+
+        $coupons = Coupon::query()
+            ->ofStatus(1)
+            ->latest()
+            ->limit(100)
+            ->get(['id', 'coupon_code', 'discount_id']);
+
+        return view('servicemanagement::admin.bulk', compact(
+            'subCategories',
+            'customers',
+            'discounts',
+            'campaigns',
+            'coupons'
+        ));
     }
 
     public function store(Request $request): RedirectResponse
@@ -49,6 +77,9 @@ class BulkAdController extends Controller
             'ads' => 'required|array|min:1|max:' . PostedAdService::MAX_ADS,
             'ads.*.name' => 'nullable|string|max:191',
             'ads.*.price' => 'nullable|numeric|min:0',
+            'ads.*.discount_id' => 'nullable|uuid',
+            'ads.*.campaign_id' => 'nullable|uuid',
+            'ads.*.coupon_id' => 'nullable|uuid',
         ]);
 
         $ads = $this->mergeRowFiles($request->input('ads', []), $request->file('ads') ?: []);

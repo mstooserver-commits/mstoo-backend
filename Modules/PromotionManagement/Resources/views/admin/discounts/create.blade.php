@@ -11,6 +11,12 @@
                         <h2 class="page-title">{{translate('add_new_discount')}}</h2>
                     </div>
 
+                    @if(!empty($selectedCustomerId))
+                        <div class="alert alert-info">
+                            {{translate('this_discount_applies_by_category_ad_or_zone')}}.
+                            <a href="{{ route('admin.coupon.create', ['customer_id' => $selectedCustomerId]) }}">{{translate('add_a_customer_wise_coupon_instead')}}</a>
+                        </div>
+                    @endif
                     <div class="card mb-30">
                         <div class="card-body p-30">
                             <form action="{{route('admin.discount.store')}}" method="POST">
@@ -19,12 +25,12 @@
                                     <div class="mb-3">{{translate('discount_type')}}</div>
                                     <div class="d-flex flex-wrap align-items-center gap-4 mb-30">
                                         <div class="custom-radio">
-                                            <input type="radio" id="category" name="discount_type" value="category" checked>
+                                            <input type="radio" id="category" name="discount_type" value="category" {{ empty($selectedServiceId) ? 'checked' : '' }}>
                                             <label for="category">{{translate('category_wise')}}</label>
                                         </div>
                                         <div class="custom-radio">
-                                            <input type="radio" id="service" name="discount_type" value="service">
-                                            <label for="service">{{translate('service_wise')}}</label>
+                                            <input type="radio" id="service" name="discount_type" value="service" {{ !empty($selectedServiceId) ? 'checked' : '' }}>
+                                            <label for="service">{{translate('ad_wise')}}</label>
                                         </div>
                                         <div class="custom-radio">
                                             <input type="radio" id="mixed" name="discount_type" value="mixed">
@@ -48,11 +54,11 @@
                                             @endforeach
                                         </select>
                                     </div>
-                                    <div class="mb-30" id="service_selector" style="display: none">
+                                    <div class="mb-30" id="service_selector" style="display: {{ !empty($selectedServiceId) ? 'block' : 'none' }}">
                                         <select class="service-select theme-input-style w-100" name="service_ids[]"
                                                 multiple="multiple" id="service_selector__select">
                                             @foreach($services as $service)
-                                                <option value="{{$service->id}}">{{$service->name}}</option>
+                                                <option value="{{$service->id}}" {{ !empty($selectedServiceId) && $selectedServiceId == $service->id ? 'selected' : '' }}>{{$service->name}}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -196,5 +202,8 @@
         $(".zone-select").select2({
             placeholder: "Select Zone",
         });
+        @if(!empty($selectedServiceId))
+        $('#service').trigger('click');
+        @endif
     </script>
 @endpush

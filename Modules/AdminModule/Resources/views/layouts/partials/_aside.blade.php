@@ -5,17 +5,14 @@
 @endphp
 <aside class="aside">
     <div class="aside-header">
-        <a href="{{route('admin.dashboard')}}" class="logo d-flex gap-2" title="MSTOO">
+        <a href="{{route('admin.dashboard')}}" class="" title="MSTOO">
             <img src="{{$mstooLogo}}"
                  onerror="this.src='{{asset('assets/admin-module/img/mstoo-logo.png')}}'"
-                 alt="MSTOO" class="main-logo">
+                 alt="MSTOO" class="">
             <img src="{{$mstooLogo}}"
                  onerror="this.src='{{asset('assets/admin-module/img/mstoo-logo.png')}}'"
                  alt="MSTOO" class="mobile-logo">
-            <span class="brand-text d-none d-xl-inline">
-                MSTOO
-                <small>ADMIN</small>
-            </span>
+           
         </a>
         <button class="toggle-menu-button aside-toggle border-0 bg-transparent p-0 dark-color" type="button" aria-label="{{translate('toggle_menu')}}">
             <span class="material-icons">menu</span>
@@ -67,6 +64,12 @@
                                 </a>
                             </li>
                         @endif
+                        <li>
+                            <a href="{{route('admin.customer.documents.index')}}"
+                               class="{{request()->is('admin/customer/documents*')?'active-menu':''}}">
+                                {{translate('approve_documents')}}
+                            </a>
+                        </li>
                     </ul>
                 </li>
             @endif
@@ -210,11 +213,11 @@
             @endif
 
             @if(access_checker('service_management'))
-                <li class="nav-category">{{translate('service_management')}}</li>
+                <li class="nav-category">{{translate('ads_management')}}</li>
                 <li class="has-sub-item {{(request()->is('admin/category/*') || request()->is('admin/sub-category/*'))?'sub-menu-opened':''}}">
                     <a href="#" class="{{(request()->is('admin/category/*') || request()->is('admin/sub-category/*'))?'active-menu':''}}">
                         <span class="material-icons" title="Ad Categories">category</span>
-                        <span class="link-title">{{translate('service_categories')}}</span>
+                        <span class="link-title">{{translate('ad_categories')}}</span>
                     </a>
                     <ul class="nav sub-menu">
                         <li>
@@ -233,20 +236,20 @@
                 </li>
                 <li class="has-sub-item {{request()->is('admin/service/*')?'sub-menu-opened':''}}">
                     <a href="#" class="{{request()->is('admin/service/*')?'active-menu':''}}">
-                        <span class="material-icons" title="Ads">design_services</span>
-                        <span class="link-title">{{translate('services')}}</span>
+                        <span class="material-icons" title="Ads">campaign</span>
+                        <span class="link-title">{{translate('ads')}}</span>
                     </a>
                     <ul class="nav flex-column sub-menu">
                         <li>
                             <a href="{{route('admin.service.index')}}"
                                class="{{request()->is('admin/service/list')?'active-menu':''}}">
-                                {{translate('posted_ads')}}
+                                {{translate('ads_list')}}
                             </a>
                         </li>
                         <li>
                             <a href="{{route('admin.service.create')}}"
                                class="{{request()->is('admin/service/create')?'active-menu':''}}">
-                                {{translate('add_new_service')}}
+                                {{translate('add_ads')}}
                             </a>
                         </li>
                         <li>
@@ -451,6 +454,18 @@
                             <a href="{{route('admin.system-setup.language')}}"
                                class="{{request()->is('admin/system-setup/language')?'active-menu':''}}">
                                 {{translate('language_setup')}}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{route('admin.system-setup.ai')}}"
+                               class="{{request()->is('admin/system-setup/ai*')?'active-menu':''}}">
+                                {{translate('ai_configuration')}}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{route('admin.push-notification.settings')}}"
+                               class="{{request()->is('admin/push-notification/settings')?'active-menu':''}}">
+                                {{translate('firebase_configuration')}}
                             </a>
                         </li>
                         <li>

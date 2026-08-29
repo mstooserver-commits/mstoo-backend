@@ -23,6 +23,7 @@ if (!function_exists('system_permission_catalog')) {
                     'delete' => 'Delete Customers',
                     'export' => 'Export Customers',
                     'manage_wallet' => 'Manage Customer Wallets',
+                    'approve_documents' => 'Approve User Documents',
                 ],
             ],
             'employee_management' => [
@@ -42,6 +43,8 @@ if (!function_exists('system_permission_catalog')) {
                     'create' => 'Create Ads',
                     'edit' => 'Edit Ads',
                     'delete' => 'Delete Ads',
+                    'approve' => 'Approve Ads',
+                    'feature' => 'Feature Ads',
                 ],
             ],
             'booking_management' => [
@@ -93,6 +96,7 @@ if (!function_exists('system_permission_catalog')) {
                     'edit' => 'Edit Promotions & Notifications',
                     'send' => 'Send Notifications',
                     'delete' => 'Delete Promotions & Notifications',
+                    'manage_channels' => 'Manage Notification Channels',
                 ],
             ],
             'blog_management' => [
@@ -131,6 +135,9 @@ if (!function_exists('system_permission_catalog')) {
                     'view' => 'View System Settings',
                     'edit' => 'Edit System Settings',
                     'manage_backup' => 'Manage Database Backups',
+                    'manage_ai' => 'Manage AI Configuration',
+                    'manage_firebase' => 'Manage Firebase Configuration',
+                    'manage_languages' => 'Manage Languages',
                 ],
             ],
         ];

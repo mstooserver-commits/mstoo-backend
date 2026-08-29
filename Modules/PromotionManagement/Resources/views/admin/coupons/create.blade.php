@@ -22,10 +22,10 @@
                                             <div class="mb-30">
                                                 <select class="js-select theme-input-style w-100" name="coupon_type"
                                                         id="coupon-type" required>
-                                                    <option selected
+                                                    <option {{ empty($selectedCustomerId) ? 'selected' : '' }}
                                                             disabled>{{translate('select_coupon_type')}}</option>
                                                     @foreach(COUPON_TYPES as $index=>$coupon_type)
-                                                        <option value="{{$index}}">{{$coupon_type}}</option>
+                                                        <option value="{{$index}}" {{ !empty($selectedCustomerId) && $index === 'customer_wise' ? 'selected' : '' }}>{{$coupon_type}}</option>
                                                     @endforeach
                                                 </select>
                                             </div>
@@ -39,13 +39,13 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="col-12 d-none" id="customer-select__div">
+                                        <div class="col-12 {{ empty($selectedCustomerId) ? 'd-none' : '' }}" id="customer-select__div">
                                             <div class="mb-30">
                                                 <select class="js-select theme-input-style w-100" id="customer-select"
-                                                        name="customer_user_ids[]" multiple>
+                                                        name="customer_user_ids[]" multiple {{ !empty($selectedCustomerId) ? 'required' : '' }}>
                                                     @foreach($customers as $key=>$customer)
                                                         <option
-                                                            value="{{$customer->id}}">{{$customer->first_name .' '. $customer->last_name}}</option>
+                                                            value="{{$customer->id}}" {{ !empty($selectedCustomerId) && $selectedCustomerId == $customer->id ? 'selected' : '' }}>{{$customer->first_name .' '. $customer->last_name}}</option>
                                                     @endforeach
                                                 </select>
                                             </div>
@@ -284,6 +284,10 @@
             $("#customer-select").select2({
                 placeholder: "{{translate('Select_customer')}}",
             });
+            @if(!empty($selectedCustomerId))
+            $('#coupon-type').val('customer_wise').trigger('change');
+            $('#customer-select').val([@json((string) $selectedCustomerId)]).trigger('change');
+            @endif
         });
     </script>
 @endpush

@@ -6,7 +6,6 @@ use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Validator;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ServiceManagement\Entities\RecentView;
@@ -135,35 +134,4 @@ class CategoryController extends Controller
 
         return response()->json(response_formatter(DEFAULT_200, $categories), 200);
     }
-
-    private function variation_mapper($services)
-    {
-        $services->map(function ($service) {
-            $service['variations_app_format'] = self::variations_app_format($service);
-            return $service;
-        });
-        return $services;
-    }
-
-    private function variations_app_format($service): array
-    {
-        $formatting = [];
-        $variations = collect($service['variations'] ?? []);
-        $zoneId = Config::get('zone_id');
-        $filtered = $zoneId ? $variations->where('zone_id', $zoneId) : $variations;
-        if ($filtered->isEmpty()) {
-            $filtered = $variations;
-        }
-        $formatting['zone_id'] = $zoneId;
-        $formatting['default_price'] = $filtered->first() ? $filtered->first()->price : 0;
-        foreach ($filtered as $data) {
-            $formatting['zone_wise_variations'][] = [
-                'variant_key' => $data['variant_key'],
-                'variant_name' => $data['variant'],
-                'price' => $data['price']
-            ];
-        }
-        return $formatting;
-    }
-
 }

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Validator;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ServiceManagement\Services\ServiceListingPresenter;
 
 class ProviderController extends Controller
 {
@@ -117,27 +118,7 @@ class ProviderController extends Controller
 
     private function variation_mapper($services)
     {
-        $services->map(function ($service) {
-            $service['variations_app_format'] = self::variations_app_format($service);
-            return $service;
-        });
-        return $services;
-    }
-
-    private function variations_app_format($service): array
-    {
-        $formatting = [];
-        $filtered = $service['variations']->where('zone_id', Config::get('zone_id'));
-        $formatting['zone_id'] = Config::get('zone_id');
-        $formatting['default_price'] = $filtered->first() ? $filtered->first()->price : 0;
-        foreach ($filtered as $data) {
-            $formatting['zone_wise_variations'][] = [
-                'variant_key' => $data['variant_key'],
-                'variant_name' => $data['variant'],
-                'price' => $data['price']
-            ];
-        }
-        return $formatting;
+        return (new ServiceListingPresenter())->decorate($services);
     }
 
 }

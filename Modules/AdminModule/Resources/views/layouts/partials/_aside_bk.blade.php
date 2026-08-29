@@ -9,10 +9,10 @@ $logo = business_config('business_logo', 'business_information');
     <div class="aside-header">
         <!-- Logo -->
         <!-- <a href="{{route('admin.dashboard')}}" class="logo d-flex gap-2"> -->
-            <a href="{{route('admin.dashboard')}}" class="logo d-flex gap-2">
+            <a href="{{route('admin.dashboard')}}" class="">
                 <img src="{{asset('storage/app/public/business')}}/{{$logo->live_values??""}}"
                      onerror="this.src='{{asset('assets/placeholder.png')}}'"
-                     alt="" class="main-logo">
+                     alt="" class="">
                 <img src="{{asset('storage/app/public/business')}}/{{$logo->live_values??""}}"
                      onerror="this.src='{{asset('assets/placeholder.png')}}'"
                      alt="" class="mobile-logo">

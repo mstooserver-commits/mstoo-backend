@@ -3,9 +3,13 @@
 namespace Modules\ServiceManagement\Services;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Modules\PromotionManagement\Entities\Campaign;
+use Modules\PromotionManagement\Entities\Coupon;
+use Modules\PromotionManagement\Entities\DiscountType;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\Variation;
 use Modules\UserManagement\Entities\User;
@@ -136,6 +140,8 @@ class PostedAdService
 
             $service->save();
 
+            $this->attachPromotions($service, $payload);
+
             $duration = $this->value($payload, 'rent_duration', 'variant') ?: 'per day';
             Variation::withoutGlobalScopes()->create([
                 'variant' => $duration,
@@ -147,6 +153,53 @@ class PostedAdService
 
             return $service->fresh();
         });
+    }
+
+    private function attachPromotions(Service $service, array $payload): void
+    {
+        $discountId = $this->value($payload, 'discount_id');
+        $campaignId = $this->value($payload, 'campaign_id');
+        $couponId = $this->value($payload, 'coupon_id');
+
+        if ($campaignId) {
+            $campaign = Campaign::query()->find($campaignId);
+            if ($campaign && $campaign->discount_id) {
+                $discountId = $discountId ?: $campaign->discount_id;
+                $this->attachServiceToDiscount($campaign->discount_id, $service->id);
+            }
+        }
+
+        if ($couponId) {
+            $coupon = Coupon::query()->find($couponId);
+            if ($coupon && $coupon->discount_id) {
+                $this->attachServiceToDiscount($coupon->discount_id, $service->id);
+            }
+        }
+
+        if ($discountId) {
+            $this->attachServiceToDiscount($discountId, $service->id);
+        }
+    }
+
+    private function attachServiceToDiscount($discountId, $serviceId): void
+    {
+        if (!$discountId || !$serviceId) {
+            return;
+        }
+
+        $exists = DiscountType::query()
+            ->where('discount_id', $discountId)
+            ->where('discount_type', 'service')
+            ->where('type_wise_id', $serviceId)
+            ->exists();
+
+        if (!$exists) {
+            DiscountType::query()->create([
+                'discount_id' => $discountId,
+                'discount_type' => 'service',
+                'type_wise_id' => $serviceId,
+            ]);
+        }
     }
 
     public function resolveUser($id, $email, $phone, ?string $fallbackId = null): User
@@ -366,5 +419,67 @@ class PostedAdService
             }
         }
         return true;
+    }
+
+    public function applyAdminForm(Service $service, Request $request): void
+    {
+        $columns = Schema::getColumnListing('services');
+        $fields = [
+            'location', 'latitude', 'longitude', 'availability', 'availability_date',
+            'contact_info', 'deposits', 'doc_required', 'additional_info', 'safety', 't_and_c',
+            'vehicle_type', 'vehicle_brand', 'model_year', 'mileage', 'fuel_type', 'transmission', 'condition',
+            'electronic_type', 'electronic_brand', 'operating_system', 'screen_size', 'storage_capacity',
+            'cloth_type', 'cloth_brand', 'cloth_size', 'property_type', 'bedrooms', 'bathrooms',
+        ];
+        foreach ($fields as $field) {
+            if (in_array($field, $columns, true) && $request->exists($field)) {
+                $service->{$field} = $request->input($field);
+            }
+        }
+
+        if (in_array('delivery_pickup', $columns, true)) {
+            $modes = [];
+            if ($request->boolean('delivery_enabled')) {
+                $modes[] = 'delivery';
+            }
+            if ($request->boolean('pickup_enabled')) {
+                $modes[] = 'pickup';
+            }
+            $extra = trim((string) $request->input('delivery_pickup_notes'));
+            $service->delivery_pickup = trim(implode(', ', $modes) . ($extra !== '' ? ' | ' . $extra : ''));
+        }
+
+        if (in_array('is_featured', $columns, true)) {
+            $service->is_featured = $request->boolean('is_featured') ? 'yes' : 'no';
+        }
+
+        if ($request->filled('contact_name') || $request->filled('contact_phone') || $request->filled('contact_email')) {
+            $contact = trim(implode(' | ', array_filter([
+                $request->input('contact_name'),
+                $request->input('contact_phone'),
+                $request->input('contact_email'),
+                $request->input('contact_alt_phone'),
+                $request->input('preferred_contact'),
+            ])));
+            if (in_array('contact_info', $columns, true) && $contact !== '') {
+                $service->contact_info = $contact;
+            }
+        }
+
+        if ($request->hasFile('gallery')) {
+            $stored = [];
+            foreach ((array) $request->file('gallery') as $file) {
+                if ($file) {
+                    $stored[] = file_uploader('service/', 'png', $file);
+                }
+            }
+            if ($stored && in_array('thumbnails', $columns, true)) {
+                $service->thumbnails = json_encode($stored);
+                if (empty($service->cover_image)) {
+                    $service->cover_image = $stored[0];
+                    $service->thumbnail = $stored[0];
+                }
+            }
+        }
     }
 }

@@ -8,7 +8,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
@@ -18,6 +17,7 @@ use Modules\ServiceManagement\Entities\RecentSearch;
 use Modules\ServiceManagement\Entities\RecentView;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\ServiceRequest;
+use Modules\ServiceManagement\Services\ServiceListingPresenter;
 use Modules\ServiceManagement\Traits\VisitedServiceTrait;
 
 use Illuminate\Support\Facades\Log;
@@ -400,32 +400,7 @@ class ServiceController extends Controller
 
     private function variation_mapper($services)
     {
-        $services->map(function ($service) {
-            $service['variations_app_format'] = self::variations_app_format($service);
-            return $service;
-        });
-        return $services;
-    }
-
-    private function variations_app_format($service): array
-    {
-        $formatting = [];
-        $variations = collect($service['variations'] ?? []);
-        $zoneId = Config::get('zone_id');
-        $filtered = $zoneId ? $variations->where('zone_id', $zoneId) : $variations;
-        if ($filtered->isEmpty()) {
-            $filtered = $variations;
-        }
-        $formatting['zone_id'] = $zoneId;
-        $formatting['default_price'] = $filtered->first() ? $filtered->first()->price : 0;
-        foreach ($filtered as $data) {
-            $formatting['zone_wise_variations'][] = [
-                'variant_key' => $data['variant_key'],
-                'variant_name' => $data['variant'],
-                'price' => $data['price']
-            ];
-        }
-        return $formatting;
+        return (new ServiceListingPresenter())->decorate($services);
     }
 
     /**
@@ -468,7 +443,7 @@ class ServiceController extends Controller
                 $recent_view->save();
             }
 
-            $service['variations_app_format'] = self::variations_app_format($service);
+            (new ServiceListingPresenter())->decorateOne($service, null, false);
             return response()->json(response_formatter(DEFAULT_200, $service), 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 200);

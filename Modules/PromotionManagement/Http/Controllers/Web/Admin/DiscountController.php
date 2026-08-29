@@ -71,8 +71,10 @@ class DiscountController extends Controller
         $categories = $this->category->ofStatus(1)->ofType('main')->latest()->get();
         $zones = $this->zone->ofStatus(1)->latest()->get();
         $services = $this->service->active()->latest()->get();
+        $selectedServiceId = $request->get('service_id');
+        $selectedCustomerId = $request->get('customer_id');
 
-        return view('promotionmanagement::admin.discounts.create', compact('categories', 'zones', 'services'));
+        return view('promotionmanagement::admin.discounts.create', compact('categories', 'zones', 'services', 'selectedServiceId', 'selectedCustomerId'));
     }
 
     /**
@@ -84,13 +86,13 @@ class DiscountController extends Controller
     {
         $request->validate([
             'discount_type' => 'required|in:category,service,zone,mixed',
-            'discount_amount' => 'required|numeric',
+            'discount_amount' => 'required|numeric|min:0' . ($request['discount_amount_type'] == 'percent' ? '|max:100' : ''),
             'discount_title' => 'required|string',
             'discount_amount_type' => 'required|in:percent,amount',
             'min_purchase' => 'required|numeric|min:0',
             'max_discount_amount' => $request['discount_amount_type'] == 'amount' ? '' : 'required' . '|numeric|min:0',
             'start_date' => 'required|date',
-            'end_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
             'category_ids' => 'array',
             'service_ids' => 'array',
             'zone_ids' => 'required|array',

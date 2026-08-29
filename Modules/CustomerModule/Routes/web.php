@@ -23,6 +23,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('update/{id}', 'CustomerController@update')->name('update')->middleware('mpc:customer_management,edit');
         Route::any('status-update/{id}', 'CustomerController@status_update')->name('status-update')->middleware('mpc:customer_management,edit');
         Route::post('document-status/{id}', 'CustomerController@document_status')->name('document-status')->middleware('mpc:customer_management,edit');
+        Route::get('documents', [\Modules\CustomerModule\Http\Controllers\Web\Admin\DocumentApprovalController::class, 'index'])->name('documents.index')->middleware('mpc:customer_management,view');
+        Route::post('documents/{id}', [\Modules\CustomerModule\Http\Controllers\Web\Admin\DocumentApprovalController::class, 'update'])->name('documents.update')->middleware('mpc:customer_management,edit');
         Route::delete('delete/{id}', 'CustomerController@destroy')->name('delete')->middleware('mpc:customer_management,delete');
         Route::get('download', 'CustomerController@download')->name('download')->middleware('mpc:customer_management,export');
         Route::post('bulk', 'CustomerController@bulk')->name('bulk')->middleware('mpc:customer_management,edit');

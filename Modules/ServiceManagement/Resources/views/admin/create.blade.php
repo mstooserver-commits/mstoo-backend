@@ -1,6 +1,6 @@
 @extends('adminmodule::layouts.master')
 
-@section('title',translate('service_setup'))
+@section('title',translate('add_ads'))
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/select2/select2.min.css"/>
@@ -16,7 +16,7 @@
             <div class="row">
                 <div class="col-12">
                     <div class="page-title-wrap mb-3">
-                        <h2 class="page-title">{{translate('add_new_service')}}</h2>
+                        <h2 class="page-title">{{translate('add_ads')}}</h2>
                     </div>
 
                     <div class="card">
@@ -25,16 +25,16 @@
                                   id="service-add-form">
                                 @csrf
                                 <div id="form-wizard">
-                                    <h3>{{translate('service_information')}}</h3>
+                                    <h3>{{translate('ad_information')}}</h3>
                                     <section>
                                         <div class="row">
                                             <div class="col-lg-5 mb-5 mb-lg-0">
                                                 <div class="mb-30">
                                                     <div class="form-floating">
                                                         <input type="text" class="form-control" name="name"
-                                                               placeholder="{{translate('service_name')}} *"
+                                                               placeholder="{{translate('ad_title')}} *"
                                                                required="" value="{{old('name')}}">
-                                                        <label>{{translate('service_name')}} *</label>
+                                                        <label>{{translate('ad_title')}} *</label>
                                                     </div>
                                                 </div>
                                                 <div class="mb-30">
@@ -184,6 +184,11 @@
                                             </table>
                                         </div>
                                     </section>
+
+                                    <h3>{{translate('ad_details')}}</h3>
+                                    <section>
+                                        @include('servicemanagement::admin.partials._ad-marketplace-fields')
+                                    </section>
                                 </div>
                             </form>
                         </div>
@@ -225,7 +230,7 @@
                     $("#service-add-form")[0].submit();
                 } else {
                     $('#service-add-form').trigger('focus')
-                    toastr.error("{{translate('Must_add_a_service_variation')}}");
+                    toastr.error("{{translate('Must_add_a_price_variation')}}");
                 }
             }
         });

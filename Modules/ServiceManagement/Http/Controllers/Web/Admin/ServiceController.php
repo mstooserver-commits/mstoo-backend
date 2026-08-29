@@ -20,6 +20,7 @@ use Modules\ServiceManagement\Entities\Faq;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\Tag;
 use Modules\ServiceManagement\Entities\Variation;
+use Modules\ServiceManagement\Services\PostedAdService;
 use Modules\ZoneManagement\Entities\Zone;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -60,19 +61,23 @@ class ServiceController extends Controller
     public function index(Request $request): View|Factory|Application
     {
         $request->validate([
-            'status' => 'nullable|in:active,inactive,all',
-            'zone_id' => 'nullable|uuid'
+            'status' => 'nullable|in:active,inactive,all,featured',
+            'zone_id' => 'nullable|uuid',
+            'category_id' => 'nullable|uuid',
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
         ]);
 
         $search = $request->has('search') ? $request['search'] : '';
         $status = $request->has('status') ? $request['status'] : 'all';
-        $query_param = ['search' => $search, 'status' => $status];
+        $query_param = $request->only(['search', 'status', 'category_id', 'from_date', 'to_date']);
 
         $services = $this->postedAdsQuery($request)
             ->paginate(pagination_limit())
             ->appends($query_param);
+        $categories = $this->category->ofStatus(1)->ofType('main')->latest()->get();
 
-        return view('servicemanagement::admin.list', compact('services', 'search', 'status'));
+        return view('servicemanagement::admin.list', compact('services', 'search', 'status', 'categories'));
     }
 
     /**
@@ -123,6 +128,8 @@ class ServiceController extends Controller
         $service->commission = $request->commission;
         $service->min_bidding_price = $request->min_bidding_price;
         $service->save();
+        (new PostedAdService())->applyAdminForm($service, $request);
+        $service->save();
         $service->tags()->sync($tag_ids);
 
         //decoding url encoded keys
@@ -134,7 +141,6 @@ class ServiceController extends Controller
 
         $variation_format = [];
         if ($variations) {
-            echo "variations";
             $zones = $this->zone->ofStatus(1)->latest()->get();
             foreach ($variations as $item) {
                 foreach ($zones as $zone) {
@@ -151,7 +157,7 @@ class ServiceController extends Controller
 
         $service->variations()->createMany($variation_format);
 
-        Toastr::success(SERVICE_STORE_200['message']);
+        Toastr::success(translate('ad_saved_successfully'));
 
         return back();
     }
@@ -275,6 +281,7 @@ class ServiceController extends Controller
 
         $service->tax = $request->tax;
         $service->min_bidding_price = $request->min_bidding_price;
+        (new PostedAdService())->applyAdminForm($service, $request);
         $service->save();
 
         $service->variations()->delete();
@@ -343,6 +350,19 @@ class ServiceController extends Controller
         $this->service->where('id', $id)->update(['is_active' => !$service->is_active]);
 
         return response()->json(DEFAULT_STATUS_UPDATE_200, 200);
+    }
+
+    public function feature_update(string $id): RedirectResponse
+    {
+        $service = $this->service->where('id', $id)->first();
+        if (!$service || !Schema::hasColumn('services', 'is_featured')) {
+            Toastr::error(DEFAULT_204['message']);
+            return back();
+        }
+        $service->is_featured = ($service->is_featured === 'yes') ? 'no' : 'yes';
+        $service->save();
+        Toastr::success(DEFAULT_STATUS_UPDATE_200['message']);
+        return back();
     }
 
 
@@ -422,6 +442,9 @@ class ServiceController extends Controller
         if (Schema::hasColumn('services', 'added_by')) {
             $relations[] = 'poster.addresses';
         }
+        $relations['variations'] = function ($query) {
+            $query->withoutGlobalScopes();
+        };
 
         return $this->service->with($relations)->latest()
             ->when($request->filled('search'), function ($query) use ($request) {
@@ -447,7 +470,16 @@ class ServiceController extends Controller
                 return $query->where('sub_category_id', $request->sub_category_id);
             })
             ->when($request->filled('status') && $request['status'] != 'all', function ($query) use ($request) {
+                if ($request['status'] === 'featured') {
+                    return $query->where('is_featured', 'yes');
+                }
                 return $query->where('is_active', $request['status'] == 'active' ? 1 : 0);
+            })
+            ->when($request->filled('from_date'), function ($query) use ($request) {
+                $query->whereDate('created_at', '>=', $request->from_date);
+            })
+            ->when($request->filled('to_date'), function ($query) use ($request) {
+                $query->whereDate('created_at', '<=', $request->to_date);
             })
             ->when($request->filled('zone_id'), function ($query) use ($request) {
                 return $query->whereHas('category.zonesBasicInfo', function ($queryZone) use ($request) {

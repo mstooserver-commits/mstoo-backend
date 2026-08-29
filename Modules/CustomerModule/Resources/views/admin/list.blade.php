@@ -10,12 +10,24 @@
                     <h2 class="page-title mb-1">{{translate('customer_list')}}</h2>
                     <p class="text-muted mb-0">{{translate('view_and_manage_registered_customers')}}</p>
                 </div>
-                @if(access_checker('customer_management', 'create'))
-                    <a href="{{route('admin.customer.create')}}" class="btn btn--primary">
-                        <span class="material-icons">add</span>
-                        {{translate('add_customer')}}
-                    </a>
-                @endif
+                <div class="d-flex flex-wrap gap-2">
+                    @if(access_checker('promotion_management', 'create'))
+                        <a href="{{route('admin.discount.create')}}" class="btn btn--secondary">
+                            <span class="material-icons">local_offer</span>
+                            {{translate('add_discount')}}
+                        </a>
+                        <a href="{{route('admin.coupon.create')}}" class="btn btn--secondary">
+                            <span class="material-icons">confirmation_number</span>
+                            {{translate('add_coupon')}}
+                        </a>
+                    @endif
+                    @if(access_checker('customer_management', 'create'))
+                        <a href="{{route('admin.customer.create')}}" class="btn btn--primary">
+                            <span class="material-icons">add</span>
+                            {{translate('add_customer')}}
+                        </a>
+                    @endif
+                </div>
             </div>
 
             <div class="card mstoo-notify-card mb-3">
@@ -117,6 +129,9 @@
                                     <option value="">{{translate('bulk_action')}}</option>
                                     <option value="activate">{{translate('activate')}}</option>
                                     <option value="deactivate">{{translate('deactivate')}}</option>
+                                    @if(access_checker('customer_management', 'delete'))
+                                        <option value="delete">{{translate('delete')}}</option>
+                                    @endif
                                 </select>
                                 <button class="btn btn--primary" type="submit" onclick="return confirm('{{translate('apply_this_action_to_selected_customers')}}?')">{{translate('apply')}}</button>
                             </div>
@@ -194,13 +209,18 @@
                                                         <span class="material-icons">edit</span>
                                                     </a>
                                                 @endif
+                                                @if(access_checker('promotion_management', 'create'))
+                                                    <a href="{{route('admin.discount.create', ['customer_id' => $customer->id])}}" class="table-actions_promo" title="{{translate('add_discount')}}">
+                                                        <span class="material-icons">local_offer</span>
+                                                    </a>
+                                                    <a href="{{route('admin.coupon.create', ['customer_id' => $customer->id])}}" class="table-actions_promo" title="{{translate('add_coupon')}}">
+                                                        <span class="material-icons">confirmation_number</span>
+                                                    </a>
+                                                @endif
                                                 @if(access_checker('customer_management', 'delete'))
-                                                    <button type="button" class="table-actions_delete bg-transparent border-0 p-0" onclick="form_alert('delete-{{$customer->id}}','{{translate('want_to_delete_this_customer')}}?')">
+                                                    <button type="button" class="table-actions_delete bg-transparent border-0 p-0" onclick="form_alert('customer-delete-{{$customer->id}}','{{translate('want_to_delete_this_customer')}}?')">
                                                         <span class="material-icons">delete</span>
                                                     </button>
-                                                    <form id="delete-{{$customer->id}}" class="d-none" method="POST" action="{{route('admin.customer.delete',[$customer->id])}}">
-                                                        @csrf @method('DELETE')
-                                                    </form>
                                                 @endif
                                             </div>
                                         </td>
@@ -216,6 +236,14 @@
                             </table>
                         </div>
                     </form>
+                    @foreach($customers as $customer)
+                        @if(access_checker('customer_management', 'delete'))
+                            <form id="customer-delete-{{$customer->id}}" class="d-none" method="POST" action="{{route('admin.customer.delete',[$customer->id])}}">
+                                @csrf
+                                @method('DELETE')
+                            </form>
+                        @endif
+                    @endforeach
                     <div class="d-flex justify-content-end">{!! $customers->links() !!}</div>
                 </div>
             </div>

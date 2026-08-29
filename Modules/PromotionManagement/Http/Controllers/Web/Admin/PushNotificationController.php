@@ -376,7 +376,19 @@ class PushNotificationController extends Controller
             ],
         ];
 
-        return view('promotionmanagement::admin.push-notification.channels', compact('channels'));
+        $channelService = app(\Modules\PromotionManagement\Services\NotificationChannelService::class);
+        $matrix = $channelService->matrix();
+        $topics = \Modules\PromotionManagement\Services\NotificationChannelService::TOPICS;
+        $audiences = \Modules\PromotionManagement\Services\NotificationChannelService::AUDIENCES;
+
+        return view('promotionmanagement::admin.push-notification.channels', compact('channels', 'matrix', 'topics', 'audiences'));
+    }
+
+    public function saveChannels(Request $request): RedirectResponse
+    {
+        app(\Modules\PromotionManagement\Services\NotificationChannelService::class)->save($request->input('channels', []));
+        Toastr::success(DEFAULT_UPDATE_200['message']);
+        return back();
     }
 
     private function activeSmsProvider($gateways): string

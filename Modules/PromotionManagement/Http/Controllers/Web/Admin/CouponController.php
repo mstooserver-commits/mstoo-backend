@@ -84,8 +84,16 @@ class CouponController extends Controller
         $zones = $this->zone->ofStatus(1)->latest()->get();
         $services = $this->service->active()->latest()->get();
         $customers = $this->customer->ofStatus(1)->get();
+        $selectedCustomerId = $request->get('customer_id');
 
-        return view('promotionmanagement::admin.coupons.create', compact('categories', 'zones', 'services', 'customers'));
+        if ($selectedCustomerId) {
+            $selectedCustomer = $this->customer->find($selectedCustomerId);
+            if ($selectedCustomer && !$customers->contains('id', $selectedCustomerId)) {
+                $customers->prepend($selectedCustomer);
+            }
+        }
+
+        return view('promotionmanagement::admin.coupons.create', compact('categories', 'zones', 'services', 'customers', 'selectedCustomerId'));
     }
 
     /**

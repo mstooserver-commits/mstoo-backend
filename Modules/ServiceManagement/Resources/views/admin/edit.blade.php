@@ -1,6 +1,6 @@
 @extends('adminmodule::layouts.master')
 
-@section('title',translate('service_update'))
+@section('title',translate('update_ad'))
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/select2/select2.min.css"/>
@@ -16,7 +16,7 @@
             <div class="row">
                 <div class="col-12">
                     <div class="page-title-wrap mb-3">
-                        <h2 class="page-title">{{translate('update_service')}}</h2>
+                        <h2 class="page-title">{{translate('update_ad')}}</h2>
                     </div>
 
                     <div class="card">
@@ -27,7 +27,7 @@
                                 @csrf
                                 @method('PUT')
                                 <div id="form-wizard">
-                                    <h3>{{translate('service_information')}}</h3>
+                                    <h3>{{translate('ad_information')}}</h3>
                                     <section>
                                         <div class="row">
                                             <div class="col-lg-5 mb-5 mb-lg-0">
@@ -198,6 +198,11 @@
                                                 </table>
                                             </div>
                                         </div>
+                                    </section>
+
+                                    <h3>{{translate('ad_details')}}</h3>
+                                    <section>
+                                        @include('servicemanagement::admin.partials._ad-marketplace-fields', ['service' => $service])
                                     </section>
                                 </div>
                             </form>

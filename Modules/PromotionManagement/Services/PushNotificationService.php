@@ -163,6 +163,19 @@ class PushNotificationService
             return;
         }
 
+        $channels = app(NotificationChannelService::class);
+        $allowedTypes = [];
+        foreach ($this->normalizeUserTypes($notification->to_users ?? ['customer']) as $type) {
+            if ($channels->enabled($type, 'push_broadcast', 'push')) {
+                $allowedTypes[] = $type;
+            }
+        }
+        if ($allowedTypes === []) {
+            $this->markFailed($notification, 'Push is disabled for the selected audience in Notification Channel settings.');
+            return;
+        }
+        $notification->to_users = $allowedTypes;
+
         try {
             $result = $notification->target_type === 'users'
                 ? $this->sendToSelectedUsers($notification)

@@ -134,8 +134,11 @@
             confirmButtonText: 'Yes',
             reverseButtons: true
         }).then((result) => {
-            if (result.value) {
-                $('#' + id).submit()
+            if (result.value || result.isConfirmed) {
+                var form = document.getElementById(id);
+                if (form) {
+                    form.submit();
+                }
             }
         })
     }

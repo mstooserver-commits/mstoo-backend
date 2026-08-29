@@ -98,6 +98,47 @@ class CustomerManagementTest extends TestCase
         }
     }
 
+    public function test_delete_removes_customer_without_history()
+    {
+        $admin = User::query()->where('user_type', 'super-admin')->where('is_active', 1)->first();
+        if (!$admin) {
+            $this->markTestSkipped('No super-admin is available in this database.');
+        }
+
+        $customer = $this->makeCustomer();
+        $id = $customer->id;
+        try {
+            $this->actingAs($admin)->delete('/admin/customer/delete/' . $id);
+            $this->assertNotNull(User::withTrashed()->find($id)?->deleted_at);
+        } finally {
+            $leftover = User::withTrashed()->find($id);
+            if ($leftover) {
+                $this->cleanupCustomer($leftover);
+            }
+        }
+    }
+
+    public function test_customer_list_has_discount_coupon_and_standalone_delete_form()
+    {
+        $admin = User::query()->where('user_type', 'super-admin')->where('is_active', 1)->first();
+        if (!$admin) {
+            $this->markTestSkipped('No super-admin is available in this database.');
+        }
+
+        $customer = $this->makeCustomer(['first_name' => 'Promo', 'last_name' => 'Target']);
+        try {
+            $this->actingAs($admin)
+                ->get('/admin/customer/list?search=' . urlencode($customer->email))
+                ->assertOk()
+                ->assertSee('admin/discount/create', false)
+                ->assertSee('admin/coupon/create', false)
+                ->assertSee('id="customer-delete-' . $customer->id . '"', false)
+                ->assertSee('/admin/customer/delete/' . $customer->id, false);
+        } finally {
+            $this->cleanupCustomer($customer);
+        }
+    }
+
     public function test_export_does_not_include_password_or_tokens()
     {
         $admin = User::query()->where('user_type', 'super-admin')->where('is_active', 1)->first();

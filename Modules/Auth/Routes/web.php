@@ -10,6 +10,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.'], function () {
         Route::get('login', 'LoginController@login_form')->name('login');
         Route::post('login', 'LoginController@admin_login')->middleware('throttle:10,1');
         Route::get('logout', 'LoginController@logout')->name('logout');
+        Route::get('forgot-password', [\Modules\Auth\Http\Controllers\AdminPasswordResetController::class, 'form'])->name('forgot-password');
+        Route::post('forgot-password', [\Modules\Auth\Http\Controllers\AdminPasswordResetController::class, 'sendOtp'])->middleware('throttle:8,1')->name('forgot-password.send');
+        Route::post('forgot-password/reset', [\Modules\Auth\Http\Controllers\AdminPasswordResetController::class, 'reset'])->middleware('throttle:8,1')->name('forgot-password.reset');
     });
 });
 

@@ -110,6 +110,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('language', [SystemSetupController::class, 'languageSave'])
             ->middleware('mpc:system_management,edit')
             ->name('language.save');
+        Route::get('ai', [\Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\AiConfigController::class, 'index'])
+            ->middleware('mpc:system_management,view')
+            ->name('ai');
+        Route::put('ai', [\Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\AiConfigController::class, 'save'])
+            ->middleware('mpc:system_management,edit')
+            ->name('ai.save');
 
         Route::get('gallery', [GalleryController::class, 'index'])
             ->middleware('mpc:system_management,view')

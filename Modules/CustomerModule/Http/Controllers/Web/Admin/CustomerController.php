@@ -146,17 +146,13 @@ class CustomerController extends Controller
     public function destroy(Request $request, $id): RedirectResponse
     {
         $user = $this->findCustomer($id);
+        $result = $this->removeCustomer($user);
 
-        if ($this->customerHasHistory($user)) {
-            $user->is_active = 0;
-            $user->save();
-            admin_audit('customer.deactivated', $user, ['reason' => 'delete_blocked_history']);
+        if ($result === 'deactivated') {
             Toastr::warning(translate('customer_has_history_so_the_account_was_deactivated_instead_of_deleted'));
             return back();
         }
 
-        $user->delete();
-        admin_audit('customer.deleted', $user, ['email' => $user->email]);
         Toastr::success(DEFAULT_DELETE_200['message']);
         return back();
     }
@@ -201,8 +197,41 @@ class CustomerController extends Controller
         $request->validate([
             'customer_ids' => 'required|array|min:1',
             'customer_ids.*' => 'uuid',
-            'action' => 'required|in:activate,deactivate',
+            'action' => 'required|in:activate,deactivate,delete',
         ]);
+
+        if ($request->action === 'delete') {
+            if (!access_checker('customer_management', 'delete')) {
+                Toastr::error(translate('you_are_not_authorized'));
+                return back();
+            }
+
+            $deleted = 0;
+            $deactivated = 0;
+            $users = $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)
+                ->whereIn('id', $request->customer_ids)
+                ->get();
+
+            foreach ($users as $user) {
+                if ($this->removeCustomer($user) === 'deleted') {
+                    $deleted++;
+                } else {
+                    $deactivated++;
+                }
+            }
+
+            admin_audit('customer.bulk_deleted', 'customers', [
+                'deleted' => $deleted,
+                'deactivated' => $deactivated,
+            ]);
+            if ($deleted) {
+                Toastr::success(DEFAULT_DELETE_200['message']);
+            }
+            if ($deactivated) {
+                Toastr::warning(translate('customer_has_history_so_the_account_was_deactivated_instead_of_deleted'));
+            }
+            return back();
+        }
 
         $next = $request->action === 'activate' ? 1 : 0;
         $updated = $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)
@@ -587,6 +616,20 @@ class CustomerController extends Controller
     private function findCustomer(string $id): User
     {
         return $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)->findOrFail($id);
+    }
+
+    private function removeCustomer(User $user): string
+    {
+        if ($this->customerHasHistory($user)) {
+            $user->is_active = 0;
+            $user->save();
+            admin_audit('customer.deactivated', $user, ['reason' => 'delete_blocked_history']);
+            return 'deactivated';
+        }
+
+        $user->delete();
+        admin_audit('customer.deleted', $user, ['email' => $user->email]);
+        return 'deleted';
     }
 
     private function customerHasHistory(User $user): bool

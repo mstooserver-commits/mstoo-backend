@@ -13,8 +13,14 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <div class="page-title-wrap mb-3">
-                        <h2 class="page-title">{{translate('discounts')}}</h2>
+                    <div class="page-title-wrap d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                        <h2 class="page-title mb-0">{{translate('discounts')}}</h2>
+                        @if(access_checker('promotion_management', 'create'))
+                            <a href="{{route('admin.discount.create')}}" class="btn btn--primary">
+                                <span class="material-icons">add</span>
+                                {{translate('add_discount')}}
+                            </a>
+                        @endif
                     </div>
 
                     <div
@@ -74,6 +80,12 @@
                                         </form>
 
                                         <div class="d-flex flex-wrap align-items-center gap-3">
+                                            @if(access_checker('promotion_management', 'create'))
+                                                <a href="{{route('admin.discount.create')}}" class="btn btn--primary">
+                                                    <span class="material-icons">add</span>
+                                                    {{translate('add_discount')}}
+                                                </a>
+                                            @endif
                                             <div class="dropdown">
                                                 <button type="button"
                                                         class="btn btn--secondary text-capitalize dropdown-toggle"
