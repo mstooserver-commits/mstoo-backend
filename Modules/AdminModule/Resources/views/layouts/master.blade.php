@@ -43,7 +43,7 @@
     <!-- ======= MAIN STYLES ======= -->
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/style.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/dev.css"/>
-    <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/mstoo-admin.css"/>
+    <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/mstoo-admin.css?v=20260902"/>
     <!-- ======= END MAIN STYLES ======= -->
 
     @stack('css_or_js')

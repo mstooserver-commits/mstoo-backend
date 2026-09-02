@@ -4,11 +4,11 @@
     --mstoo-primary-soft: #FDECEC;
     --mstoo-accent: #D93F46;
     --mstoo-gradient: linear-gradient(135deg, #D93F46 0%, #AC2A29 100%);
-    --mstoo-sidebar: #111827;
-    --mstoo-sidebar-hover: rgba(255, 255, 255, 0.06);
-    --mstoo-sidebar-text: #D1D5DB;
+    --mstoo-sidebar: #FFFFFF;
+    --mstoo-sidebar-hover: #F7F8FA;
+    --mstoo-sidebar-text: #374151;
     --mstoo-sidebar-muted: #9CA3AF;
-    --mstoo-sidebar-active: #ffffff;
+    --mstoo-sidebar-active: #111827;
     --mstoo-bg: #F7F8FA;
     --mstoo-card: #FFFFFF;
     --mstoo-border: #E5E7EB;
@@ -245,39 +245,44 @@ textarea:focus-visible,
 /* Sidebar */
 .aside {
     background: var(--mstoo-sidebar);
-    box-shadow: none;
+    box-shadow: 1px 0 0 var(--mstoo-border);
     color: var(--mstoo-sidebar-text);
+    border-inline-end: 1px solid var(--mstoo-border);
 }
 
 .aside-header {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    min-height: 72px;
-    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--mstoo-border);
+    min-height: 64px;
+    padding: 0.65rem 0.9rem;
 }
 
-.aside .logo {
+.aside .logo,
+.aside-header > a {
     align-items: center;
-    gap: 0.75rem !important;
+    gap: 0.55rem !important;
     min-width: 0;
+    display: inline-flex;
 }
 
 .aside .logo img,
 .aside .logo .main-logo,
-.aside .logo .mobile-logo {
-    max-height: 52px;
-    height: 52px;
-    width: auto;
-    max-width: 180px;
+.aside .logo .mobile-logo,
+.aside-header > a img,
+.aside-header img {
+    max-height: 34px !important;
+    height: 34px !important;
+    width: auto !important;
+    max-width: 120px !important;
     object-fit: contain;
     padding: 0;
-    mix-blend-mode: lighten;
+    mix-blend-mode: normal;
 }
 
 .aside .brand-text {
-    color: #fff;
+    color: var(--mstoo-title);
     font-weight: 800;
     letter-spacing: 0.12em;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     line-height: 1;
 }
 
@@ -292,19 +297,19 @@ textarea:focus-visible,
 
 .aside-header .aside-toggle,
 .aside-header .toggle-menu-button {
-    color: #fff !important;
+    color: var(--mstoo-title) !important;
 }
 
 .aside-body .user-profile {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: #F7F8FA;
+    border: 1px solid var(--mstoo-border);
     border-radius: 14px;
     padding: 0.8rem;
     margin-bottom: 1rem;
 }
 
 .aside-body .user-profile .card-title {
-    color: #fff;
+    color: var(--mstoo-title);
     font-size: 0.9rem;
     margin-bottom: 0.15rem;
 }
@@ -338,7 +343,7 @@ textarea:focus-visible,
 
 .aside-body .nav li > a:hover {
     background: var(--mstoo-sidebar-hover);
-    color: #fff;
+    color: var(--mstoo-title);
 }
 
 .aside-body .nav li > a.active-menu,
@@ -355,7 +360,7 @@ textarea:focus-visible,
 }
 
 .aside-body .nav ul.sub-menu {
-    background: rgba(255, 255, 255, 0.03);
+    background: #F9FAFB;
     border-radius: 10px;
     margin-top: 0.3rem;
 }
@@ -369,8 +374,8 @@ textarea:focus-visible,
 
 .aside-body .nav ul.sub-menu a.active-menu,
 .aside-body .nav ul.sub-menu a:hover {
-    color: #fff;
-    background: rgba(217, 35, 46, 0.16);
+    color: var(--mstoo-primary);
+    background: var(--mstoo-primary-soft);
 }
 
 .aside-body .nav li .link-title .count {
@@ -391,13 +396,13 @@ textarea:focus-visible,
 
 .aside-footer {
     padding: 1rem 1.15rem 1.2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--mstoo-border);
 }
 
 .aside-footer .logout-btn {
     width: 100%;
-    color: #FECACA;
-    background: rgba(217, 35, 46, 0.12);
+    color: var(--mstoo-primary);
+    background: var(--mstoo-primary-soft);
     border: 0;
     border-radius: 10px;
     padding: 0.65rem 0.85rem;
@@ -408,8 +413,8 @@ textarea:focus-visible,
 }
 
 .aside-footer .logout-btn:hover {
-    background: rgba(217, 35, 46, 0.22);
-    color: #fff;
+    background: #FAD7D9;
+    color: var(--mstoo-primary-dark);
 }
 
 body.aside-folded:not(.open-aside-folded) .aside .brand-text {
@@ -434,8 +439,12 @@ body.aside-folded:not(.open-aside-folded) .aside-footer .logout-btn span:not(.ma
     display: none;
 }
 
-body.aside-folded:not(.open-aside-folded) .aside .logo img {
-    max-width: 36px;
+body.aside-folded:not(.open-aside-folded) .aside .logo img,
+body.aside-folded:not(.open-aside-folded) .aside-header > a img,
+body.aside-folded:not(.open-aside-folded) .aside-header img {
+    max-height: 28px !important;
+    height: 28px !important;
+    max-width: 28px !important;
 }
 
 /* KPI */
