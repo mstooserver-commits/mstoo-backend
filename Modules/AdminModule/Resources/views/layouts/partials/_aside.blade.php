@@ -5,14 +5,13 @@
 @endphp
 <aside class="aside">
     <div class="aside-header">
-        <a href="{{route('admin.dashboard')}}" class="" title="MSTOO">
+        <a href="{{route('admin.dashboard')}}" class="aside-brand" title="MSTOO">
             <img src="{{$mstooLogo}}"
                  onerror="this.src='{{asset('assets/admin-module/img/mstoo-logo.png')}}'"
-                 alt="MSTOO" class="">
+                 alt="MSTOO" class="main-logo">
             <img src="{{$mstooLogo}}"
                  onerror="this.src='{{asset('assets/admin-module/img/mstoo-logo.png')}}'"
                  alt="MSTOO" class="mobile-logo">
-           
         </a>
         <button class="toggle-menu-button aside-toggle border-0 bg-transparent p-0 dark-color" type="button" aria-label="{{translate('toggle_menu')}}">
             <span class="material-icons">menu</span>

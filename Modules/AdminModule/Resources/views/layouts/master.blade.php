@@ -43,7 +43,10 @@
     <!-- ======= MAIN STYLES ======= -->
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/style.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/dev.css"/>
-    <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/mstoo-admin.css?v=20260902"/>
+    <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/mstoo-admin.css?v=20260902b"/>
+    <script>
+        try { localStorage.removeItem('mstoo-aside-folded'); } catch (e) {}
+    </script>
     <!-- ======= END MAIN STYLES ======= -->
 
     @stack('css_or_js')

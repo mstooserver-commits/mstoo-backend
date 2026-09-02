@@ -244,7 +244,7 @@ textarea:focus-visible,
 
 /* Sidebar */
 .aside {
-    background: var(--mstoo-sidebar);
+    background: #FFFFFF;
     box-shadow: 1px 0 0 var(--mstoo-border);
     color: var(--mstoo-sidebar-text);
     border-inline-end: 1px solid var(--mstoo-border);
@@ -253,28 +253,48 @@ textarea:focus-visible,
 .aside-header {
     border-bottom: 1px solid var(--mstoo-border);
     min-height: 64px;
-    padding: 0.65rem 0.9rem;
+    height: 64px;
+    padding: 0.55rem 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
 }
 
+.aside .aside-brand,
 .aside .logo,
 .aside-header > a {
     align-items: center;
-    gap: 0.55rem !important;
+    gap: 0 !important;
     min-width: 0;
     display: inline-flex;
+    max-width: 100%;
+    text-decoration: none;
+}
+
+.aside .main-logo {
+    display: block;
+    max-height: 32px !important;
+    height: 32px !important;
+    width: auto !important;
+    max-width: 110px !important;
+    object-fit: contain;
+    padding: 0;
+}
+
+.aside .mobile-logo {
+    display: none;
+    max-height: 28px !important;
+    height: 28px !important;
+    width: auto !important;
+    max-width: 28px !important;
+    object-fit: contain;
+    padding: 0;
 }
 
 .aside .logo img,
-.aside .logo .main-logo,
-.aside .logo .mobile-logo,
 .aside-header > a img,
 .aside-header img {
-    max-height: 34px !important;
-    height: 34px !important;
-    width: auto !important;
-    max-width: 120px !important;
-    object-fit: contain;
-    padding: 0;
     mix-blend-mode: normal;
 }
 
@@ -298,6 +318,7 @@ textarea:focus-visible,
 .aside-header .aside-toggle,
 .aside-header .toggle-menu-button {
     color: var(--mstoo-title) !important;
+    flex-shrink: 0;
 }
 
 .aside-body .user-profile {
@@ -352,6 +373,11 @@ textarea:focus-visible,
     background: var(--mstoo-gradient);
     color: #fff;
     box-shadow: none;
+}
+
+.aside-body .nav li > a.active-menu .material-icons,
+.aside-body .nav li .active-menu .material-icons {
+    color: #fff !important;
 }
 
 .aside-body .nav li > a .material-icons {
@@ -430,6 +456,54 @@ body.aside-folded:not(.open-aside-folded) .aside-footer .logout-btn {
     overflow: hidden;
 }
 
+body.aside-folded:not(.open-aside-folded) .aside {
+    background: #FFFFFF;
+}
+
+body.aside-folded:not(.open-aside-folded) .aside-header {
+    justify-content: center;
+    padding: 0.5rem 0.35rem;
+    min-height: 56px;
+    height: 56px;
+}
+
+body.aside-folded:not(.open-aside-folded) .aside .main-logo {
+    display: none !important;
+}
+
+body.aside-folded:not(.open-aside-folded) .aside .mobile-logo {
+    display: block !important;
+    max-height: 26px !important;
+    height: 26px !important;
+    max-width: 26px !important;
+    margin: 0 auto;
+}
+
+body.aside-folded:not(.open-aside-folded) .aside-body .user-profile {
+    display: none !important;
+}
+
+body.aside-folded:not(.open-aside-folded) .aside-body .nav li {
+    padding: 0.2rem 0;
+}
+
+body.aside-folded:not(.open-aside-folded) .aside-body .nav li > a {
+    justify-content: center;
+    padding: 0.55rem 0.35rem;
+}
+
+body.aside-folded:not(.open-aside-folded) .aside-body .nav li > a.active-menu {
+    color: #fff;
+}
+
+body.aside-folded:not(.open-aside-folded) .aside-body .nav li > a.active-menu .material-icons {
+    color: #fff !important;
+}
+
+body.aside-folded:not(.open-aside-folded) .aside-footer {
+    padding: 0.75rem 0.4rem 1rem;
+}
+
 body.aside-folded:not(.open-aside-folded) .aside-footer .logout-btn {
     justify-content: center;
     padding-inline: 0.4rem;
@@ -439,12 +513,12 @@ body.aside-folded:not(.open-aside-folded) .aside-footer .logout-btn span:not(.ma
     display: none;
 }
 
-body.aside-folded:not(.open-aside-folded) .aside .logo img,
-body.aside-folded:not(.open-aside-folded) .aside-header > a img,
-body.aside-folded:not(.open-aside-folded) .aside-header img {
-    max-height: 28px !important;
-    height: 28px !important;
-    max-width: 28px !important;
+body.aside-folded.open-aside-folded .aside .main-logo {
+    display: block !important;
+}
+
+body.aside-folded.open-aside-folded .aside .mobile-logo {
+    display: none !important;
 }
 
 /* KPI */

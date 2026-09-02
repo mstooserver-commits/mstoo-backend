@@ -2,7 +2,7 @@
     "use strict";
 
     var body = $("body");
-    var STORAGE_KEY = "mstoo-aside-folded";
+    var STORAGE_KEY = "mstoo-aside-folded-v2";
     var DESKTOP_MIN = 1200;
     var lastDesktop = null;
 
