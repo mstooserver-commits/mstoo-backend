@@ -16,6 +16,7 @@ class ProMemberManagementServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
         $this->commands([
             \Modules\ProMemberManagement\Console\ExpireProMembershipsCommand::class,
+            \Modules\ProMemberManagement\Console\CreateProTestUserCommand::class,
         ]);
     }
 

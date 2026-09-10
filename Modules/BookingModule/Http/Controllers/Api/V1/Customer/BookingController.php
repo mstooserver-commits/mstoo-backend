@@ -45,6 +45,13 @@ class BookingController extends Controller
             //For bidding
             'post_id' => 'uuid',
             'provider_id' => 'uuid',
+            // Native Razorpay (Flutter) proof — verified server-side before booking
+            'payment_id' => 'nullable|string',
+            'order_id' => 'nullable|string',
+            'signature' => 'nullable|string',
+            'razorpay_payment_id' => 'nullable|string',
+            'razorpay_order_id' => 'nullable|string',
+            'razorpay_signature' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -55,15 +62,21 @@ class BookingController extends Controller
             return response()->json(response_formatter(PAYMENT_METHOD_DISABLED_403), 403);
         }
 
+        $response = ['flag' => 'failed'];
+
         if ($request['payment_method'] == 'wallet_payment') {
             if (!isset($request['post_id'])) {
-                $this->place_booking_request($request->user()->id, $request, 'wallet_payment');
+                $response = $this->place_booking_request($request->user()->id, $request, 'wallet_payment');
             } else {
                 //for bidding
                 $post_bid = PostBid::with(['post'])
                     ->where('post_id', $request['post_id'])
                     ->where('provider_id', $request['provider_id'])
                     ->first();
+
+                if (!$post_bid) {
+                    return response()->json(response_formatter(DEFAULT_404), 404);
+                }
 
                 $data = [
                     'payment_method' => $request['payment_method'],
@@ -85,16 +98,78 @@ class BookingController extends Controller
 
                 $response = $this->place_booking_request_for_bidding($request->user()->id, $request, 'wallet_payment', $data);
 
-                if ($response['flag'] == 'success') {
+                if (($response['flag'] ?? null) == 'success') {
                     PostBidController::accept_post_bid_offer($post_bid->id, $response['booking_id']);
                 }
             }
+        } elseif ($request['payment_method'] == 'razor_pay') {
+            $paymentId = $request['payment_id'] ?? $request['razorpay_payment_id'] ?? null;
+            $orderId = $request['order_id'] ?? $request['razorpay_order_id'] ?? null;
+            $signature = $request['signature'] ?? $request['razorpay_signature'] ?? null;
 
+            if (empty($paymentId)) {
+                return response()->json(response_formatter(DEFAULT_400, null, [
+                    ['error_code' => 'payment_id', 'message' => 'Razorpay payment id is required'],
+                ]), 400);
+            }
+
+            try {
+                $api = new \Razorpay\Api\Api(config('razor_config.api_key'), config('razor_config.api_secret'));
+
+                if (!empty($orderId) && !empty($signature)) {
+                    $api->utility->verifyPaymentSignature([
+                        'razorpay_order_id' => $orderId,
+                        'razorpay_payment_id' => $paymentId,
+                        'razorpay_signature' => $signature,
+                    ]);
+                }
+
+                $payment = $api->payment->fetch($paymentId);
+                $status = $payment['status'] ?? null;
+                if ($status === 'authorized') {
+                    $payment = $api->payment->fetch($paymentId)->capture([
+                        'amount' => $payment['amount'],
+                    ]);
+                    $status = $payment['status'] ?? $status;
+                }
+
+                if (!in_array($status, ['captured', 'authorized'], true)) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'payment_failed_400',
+                        'message' => translate('Payment verification failed'),
+                    ]), 400);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Razorpay booking verify failed', [
+                    'payment_id' => $paymentId,
+                    'error' => $e->getMessage(),
+                ]);
+                return response()->json(response_formatter([
+                    'response_code' => 'payment_failed_400',
+                    'message' => translate('Payment verification failed'),
+                ]), 400);
+            }
+
+            $response = $this->place_booking_request($request->user()->id, $request, $paymentId);
+        } elseif ($request['payment_method'] == 'cash_after_service') {
+            $response = $this->place_booking_request($request->user()->id, $request, 'cash-payment');
         } else {
-            $this->place_booking_request($request->user()->id, $request, 'cash-payment');
+            return response()->json(response_formatter(PAYMENT_METHOD_DISABLED_403), 403);
         }
 
-        return response()->json(response_formatter(DEFAULT_200), 200);
+        if (($response['flag'] ?? null) !== 'success') {
+            return response()->json(response_formatter(DEFAULT_204, $response), 200);
+        }
+
+        $bookingIds = $response['booking_id'] ?? $response['booking_ids'] ?? [];
+        if (!is_array($bookingIds)) {
+            $bookingIds = [$bookingIds];
+        }
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'booking_ids' => $bookingIds,
+            'booking_id' => $bookingIds[0] ?? null,
+        ]), 200);
     }
 
 

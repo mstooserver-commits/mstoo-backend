@@ -315,6 +315,34 @@ class ProMemberService
         $this->notify($membership->customer, 'payment_failed', $membership);
     }
 
+    /**
+     * Dev/test only: grant an active Pro membership without collecting payment.
+     * Callers MUST gate on APP_ENV (local/development/testing).
+     */
+    public function grantTestMembership(User $customer, ?ProMemberPlan $plan = null, int $days = 30): ProMembership
+    {
+        $plan = $plan ?: ProMemberPlan::query()->where('is_active', 1)->orderBy('sort_order')->first();
+        if (!$plan) {
+            throw new \RuntimeException('no_active_pro_plan');
+        }
+
+        return DB::transaction(function () use ($customer, $plan, $days) {
+            $membership = $this->createPendingMembership($customer, $plan, 'test_grant');
+            $membership->amount_paid = 0;
+            $membership->notes = 'Dev/test Pro grant — not a real payment';
+            $membership->save();
+
+            $activated = $this->activateMembership($membership, 'dev-test-grant-' . $membership->id, 'paid');
+            // Override duration for flexible test windows.
+            $activated->expires_at = now()->addDays(max(1, $days));
+            $activated->save();
+
+            $this->forgetMembershipCache($customer->id);
+
+            return $activated->fresh(['plan', 'customer']);
+        });
+    }
+
     public function purchaseWithWallet(User $customer, ProMemberPlan $plan): ProMembership
     {
         $amount = $this->planPayable($plan);

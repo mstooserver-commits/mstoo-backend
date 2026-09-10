@@ -155,126 +155,108 @@ class LoginController extends Controller
 
 
     /**
-     * Display a listing of the resource.
+     * Customer phone/email + password login.
+     * Successful password auth returns a token immediately (no OTP).
+     * OTP is only required when phone verification is enabled and the phone is unverified.
+     *
      * @param Request $request
      * @return JsonResponse
      */
     public function customer_login(Request $request): JsonResponse
     {
-        // $validator = Validator::make($request->all(), $this->validation_array);
-        // if ($validator->fails()) return response()->json(response_formatter(AUTH_LOGIN_403, null, error_processor($validator)), 403);
-
-
-        $phoneno = $request['email_or_phone'];
-        if (substr($phoneno, 0, 3) === "+91") {
-            $phoneno = substr($phoneno, 3);
-        } else {
-            $phoneno = $phoneno;
+        $validator = Validator::make($request->all(), $this->validation_array);
+        if ($validator->fails()) {
+            return response()->json(response_formatter(AUTH_LOGIN_403, null, error_processor($validator)), 403);
         }
 
-
-        // $user = $this->user
-        //     ->where(['phone' => "+91".$request['email_or_phone']])
-        //     ->orWhere('email', $request['email_or_phone'])
-        //     // ->ofType(CUSTOMER_USER_TYPES)
-        //     ->first();
+        $rawIdentity = (string) $request['email_or_phone'];
+        $phoneno = $rawIdentity;
+        if (str_starts_with($phoneno, '+91')) {
+            $phoneno = substr($phoneno, 3);
+        } elseif (str_starts_with($phoneno, '91') && strlen($phoneno) > 10) {
+            $phoneno = substr($phoneno, 2);
+        }
+        $phoneno = preg_replace('/\D+/', '', $phoneno) ?: $phoneno;
+        $phoneCandidates = array_values(array_unique(array_filter([
+            '+91' . $phoneno,
+            $phoneno,
+            '91' . $phoneno,
+            $rawIdentity,
+        ])));
 
         $user = $this->user
-            ->where(function ($query) use ($phoneno) {
-                $query->where('phone', '+91' . $phoneno)
+            ->where(function ($query) use ($phoneCandidates, $rawIdentity, $phoneno) {
+                $query->whereIn('phone', $phoneCandidates)
+                    ->orWhere('email', $rawIdentity)
                     ->orWhere('email', $phoneno);
             })
-            // ->ofType(CUSTOMER_USER_TYPES)
+            ->ofType(CUSTOMER_USER_TYPES)
             ->first();
 
-        //not found
-        // if (!isset($user)) {
-        //     return response()->json(response_formatter(AUTH_LOGIN_404), 404);
-        // }
         if (!isset($user)) {
-            // return response()->json(response_formatter(AUTH_LOGIN_404), 404);
-        $user = $this->user;
-        // $user->phone = "+91".$request->email_or_phone;
-        $user->phone = "+91".$phoneno;
-        $user->profile_image = $request->has('profile_image') ? file_uploader('user/profile_image/', 'png', $request->profile_image) : 'default.png';
-        $user->user_type = 'customer';
-        $user->is_active = 1;
-        $user->is_phone_verified = 1;
-        $user->fcm_token = $request->device_token;
-        $user->save();
+            return response()->json(response_formatter(AUTH_LOGIN_404), 404);
         }
 
         $temp_block_time = mstoo_otp_setting('temporary_login_block_time');
 
-        $user->fcm_token = $request->device_token;
-        $user->save();
-        //if temporarily blocked
+        if ($request->filled('device_token')) {
+            $user->fcm_token = $request->device_token;
+            $user->save();
+        }
+
         if ($user->is_temp_blocked) {
-            //if 'temporary block period' has not expired
-            if(isset($user->temp_block_time) && Carbon::parse($user->temp_block_time)->DiffInSeconds() <= $temp_block_time){
+            if (isset($user->temp_block_time) && Carbon::parse($user->temp_block_time)->DiffInSeconds() <= $temp_block_time) {
                 $time = $temp_block_time - Carbon::parse($user->temp_block_time)->DiffInSeconds();
                 return response()->json(response_formatter([
                     "response_code" => "auth_login_401",
-                    "message" => translate('Your account is temporarily blocked. Please_try_again_after_'). CarbonInterval::seconds($time)->cascade()->forHumans(),
+                    "message" => translate('Your account is temporarily blocked. Please_try_again_after_') . CarbonInterval::seconds($time)->cascade()->forHumans(),
                 ]), 401);
             }
 
-            //reset
             $user->login_hit_count = 0;
             $user->is_temp_blocked = 0;
             $user->temp_block_time = null;
             $user->save();
         }
 
-        //credentials mismatch
-        // if (!Hash::check($request['password'], $user['password'])) {
-        //     self::update_user_hit_count($user);
-        //     return response()->json(response_formatter(AUTH_LOGIN_401), 401);
-        // }
+        if (empty($user->password) || !Hash::check($request['password'], $user->password)) {
+            self::update_user_hit_count($user);
+            return response()->json(response_formatter(AUTH_LOGIN_401), 401);
+        }
 
-        //phone verification
-        // $phone_verification = business_config('phone_verification', 'service_setup')?->live_values ?? 0;
-        // if ($phone_verification && !$user->is_phone_verified) {
+        $phone_verification = (int) (business_config('phone_verification', 'service_setup')?->live_values ?? 0);
+        if ($phone_verification && !$user->is_phone_verified) {
             self::update_user_hit_count($user);
 
-	        // send OTP to number if not verified
-
-            if ($phoneno == "9876543210") {
-                $token = "1234";
-            } else {
-                $token = SMS_gateway::generateOtp();
+            $otpPhone = preg_replace('/\D+/', '', (string) $user->phone) ?: $phoneno;
+            if (str_starts_with($otpPhone, '91') && strlen($otpPhone) > 10) {
+                $otpPhone = substr($otpPhone, 2);
             }
-            
-	        // $token = env('APP_ENV') != 'live' ? rand(1000, 9999) : rand(1000, 9999);
-	        SMS_gateway::send($phoneno, $token, $request['signature_id']);
-	        DB::table('user_verifications')->insert(
-	             array(
-	                    'identity'     =>   "+91".$phoneno, 
-	                    'identity_type'   =>   'phone',
-	                    'otp'   =>   $token,
-	                    'expires_at' => now()->addSeconds(mstoo_otp_expiry_seconds())
-	             )
-	        );
-	        // closed
+
+            $token = ($otpPhone === '9876543210') ? '1234' : SMS_gateway::generateOtp();
+            SMS_gateway::send($otpPhone, $token, $request['signature_id'] ?? null);
+            DB::table('user_verifications')->insert([
+                'identity' => '+91' . $otpPhone,
+                'identity_type' => 'phone',
+                'otp' => $token,
+                'expires_at' => now()->addSeconds(mstoo_otp_expiry_seconds()),
+            ]);
 
             return response()->json(response_formatter(UNVERIFIED_PHONE), 401);
-        // }
+        }
 
-        //email verification
-        $email_verification = business_config('email_verification', 'service_setup')?->live_values ?? 0;
+        $email_verification = (int) (business_config('email_verification', 'service_setup')?->live_values ?? 0);
         if ($email_verification && !$user->is_email_verified) {
             self::update_user_hit_count($user);
             return response()->json(response_formatter(UNVERIFIED_EMAIL), 401);
         }
 
-        //not active
         if (!$user->is_active) {
             self::update_user_hit_count($user);
             return response()->json(response_formatter(ACCOUNT_DISABLED), 401);
         }
 
-        //req within blocking
-        if(isset($user->temp_block_time) && Carbon::parse($user->temp_block_time)->DiffInSeconds() <= $temp_block_time){
+        if (isset($user->temp_block_time) && Carbon::parse($user->temp_block_time)->DiffInSeconds() <= $temp_block_time) {
             $time = $temp_block_time - Carbon::parse($user->temp_block_time)->DiffInSeconds();
             return response()->json(response_formatter([
                 "response_code" => "auth_login_401",
@@ -282,7 +264,11 @@ class LoginController extends Controller
             ]), 401);
         }
 
-        //login success
+        $user->login_hit_count = 0;
+        $user->is_temp_blocked = 0;
+        $user->temp_block_time = null;
+        $user->save();
+
         return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, CUSTOMER_PANEL_ACCESS)), 200);
     }
 
