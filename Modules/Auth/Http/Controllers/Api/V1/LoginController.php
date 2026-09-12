@@ -38,9 +38,25 @@ class LoginController extends Controller
         $validator = Validator::make($request->all(), $this->validation_array);
         if ($validator->fails()) return response()->json(response_formatter(AUTH_LOGIN_403, null, error_processor($validator)), 403);
 
-        $user = $this->user->where(function ($query) use ($request) {
-                $query->where('phone', $request['email_or_phone'])
-                    ->orWhere('email', $request['email_or_phone']);
+        $rawIdentity = (string) $request['email_or_phone'];
+        $phoneno = $rawIdentity;
+        if (str_starts_with($phoneno, '+91')) {
+            $phoneno = substr($phoneno, 3);
+        } elseif (str_starts_with($phoneno, '91') && strlen($phoneno) > 10) {
+            $phoneno = substr($phoneno, 2);
+        }
+        $phoneno = preg_replace('/\D+/', '', $phoneno) ?: $phoneno;
+        $phoneCandidates = array_values(array_unique(array_filter([
+            '+91' . $phoneno,
+            $phoneno,
+            '91' . $phoneno,
+            $rawIdentity,
+        ])));
+
+        $user = $this->user->where(function ($query) use ($phoneCandidates, $rawIdentity, $phoneno) {
+                $query->whereIn('phone', $phoneCandidates)
+                    ->orWhere('email', $rawIdentity)
+                    ->orWhere('email', $phoneno);
             })
             ->ofType(ADMIN_USER_TYPES)
             ->first();
@@ -82,9 +98,25 @@ class LoginController extends Controller
         $validator = Validator::make($request->all(), $this->validation_array);
         if ($validator->fails()) return response()->json(response_formatter(AUTH_LOGIN_403, null, error_processor($validator)), 403);
 
-        $user = $this->user->where(function ($query) use ($request) {
-                $query->where('phone', $request['email_or_phone'])
-                    ->orWhere('email', $request['email_or_phone']);
+        $rawIdentity = (string) $request['email_or_phone'];
+        $phoneno = $rawIdentity;
+        if (str_starts_with($phoneno, '+91')) {
+            $phoneno = substr($phoneno, 3);
+        } elseif (str_starts_with($phoneno, '91') && strlen($phoneno) > 10) {
+            $phoneno = substr($phoneno, 2);
+        }
+        $phoneno = preg_replace('/\D+/', '', $phoneno) ?: $phoneno;
+        $phoneCandidates = array_values(array_unique(array_filter([
+            '+91' . $phoneno,
+            $phoneno,
+            '91' . $phoneno,
+            $rawIdentity,
+        ])));
+
+        $user = $this->user->where(function ($query) use ($phoneCandidates, $rawIdentity, $phoneno) {
+                $query->whereIn('phone', $phoneCandidates)
+                    ->orWhere('email', $rawIdentity)
+                    ->orWhere('email', $phoneno);
             })
             // ->ofType(PROVIDER_USER_TYPES)
             ->first();
@@ -192,6 +224,16 @@ class LoginController extends Controller
             })
             ->ofType(CUSTOMER_USER_TYPES)
             ->first();
+
+        if (!isset($user)) {
+            $user = $this->user
+                ->where(function ($query) use ($phoneCandidates, $rawIdentity, $phoneno) {
+                    $query->whereIn('phone', $phoneCandidates)
+                        ->orWhere('email', $rawIdentity)
+                        ->orWhere('email', $phoneno);
+                })
+                ->first();
+        }
 
         if (!isset($user)) {
             return response()->json(response_formatter(AUTH_LOGIN_404), 404);
