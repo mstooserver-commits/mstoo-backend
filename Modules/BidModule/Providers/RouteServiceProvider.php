@@ -63,6 +63,7 @@ class RouteServiceProvider extends ServiceProvider
     protected function mapApiRoutes()
     {
         Route::prefix('api')
+            ->as('api.')
             ->middleware('api')
             ->namespace($this->moduleNamespace)
             ->group(module_path('BidModule', '/Routes/api.php'));
@@ -78,6 +79,7 @@ class RouteServiceProvider extends ServiceProvider
     protected function mapApiV1Routes()
     {
         Route::prefix('api/v1')
+            ->as('api.')
             ->middleware('api')
             ->namespace($this->moduleNamespace)
             ->group(module_path('BidModule', '/Routes/api/v1/api.php'));

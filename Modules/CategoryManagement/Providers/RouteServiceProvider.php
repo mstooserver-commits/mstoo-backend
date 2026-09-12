@@ -62,6 +62,7 @@ class RouteServiceProvider extends ServiceProvider
     protected function mapApiRoutes()
     {
         Route::prefix('api')
+            ->as('api.')
             ->middleware('api')
             ->namespace($this->moduleNamespace)
             ->group(module_path('CategoryManagement', '/Routes/api.php'));
@@ -77,6 +78,7 @@ class RouteServiceProvider extends ServiceProvider
     protected function mapApiV1Routes()
     {
         Route::prefix('api/v1')
+            ->as('api.')
             ->middleware('api')
             ->namespace($this->moduleNamespace)
             ->group(module_path('CategoryManagement', '/Routes/api/v1/api.php'));
