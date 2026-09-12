@@ -226,22 +226,8 @@ class LoginController extends Controller
 
         $phone_verification = (int) (business_config('phone_verification', 'service_setup')?->live_values ?? 0);
         if ($phone_verification && !$user->is_phone_verified) {
-            self::update_user_hit_count($user);
-
-            $otpPhone = preg_replace('/\D+/', '', (string) $user->phone) ?: $phoneno;
-            if (str_starts_with($otpPhone, '91') && strlen($otpPhone) > 10) {
-                $otpPhone = substr($otpPhone, 2);
-            }
-
-            $token = ($otpPhone === '9876543210') ? '1234' : SMS_gateway::generateOtp();
-            SMS_gateway::send($otpPhone, $token, $request['signature_id'] ?? null);
-            DB::table('user_verifications')->insert([
-                'identity' => '+91' . $otpPhone,
-                'identity_type' => 'phone',
-                'otp' => $token,
-                'expires_at' => now()->addSeconds(mstoo_otp_expiry_seconds()),
-            ]);
-
+            // Do NOT send SMS here — VerificationScreen sends a single OTP.
+            // Sending here caused duplicate OTPs (login + verification screen).
             return response()->json(response_formatter(UNVERIFIED_PHONE), 401);
         }
 

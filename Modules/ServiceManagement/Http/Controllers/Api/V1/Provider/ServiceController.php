@@ -351,15 +351,31 @@ class ServiceController extends Controller
 		$folder = file_put_contents($folderName.$safeName, $file);
 		$cover_image = $safeName;
 
-    	$uploadedImages = [];
-    	foreach ($request->file('images') as $image) {
-        $imageName = Str::random(10).'.'.'jpg';
-        $image->move(storage_path('app/public/service/'), $imageName);
-        $uploadedImages[] = $imageName;
-    	}
-
         $service->cover_image = $cover_image;
         $service->thumbnail = $cover_image;
+        $uploadedImages = [];
+        $imageFiles = $request->file('images');
+        if (empty($imageFiles)) {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'images', 'message' => translate('Please upload at least one product photo')],
+            ]), 400);
+        }
+        if (!is_array($imageFiles)) {
+            $imageFiles = [$imageFiles];
+        }
+        foreach ($imageFiles as $image) {
+            if (!$image) {
+                continue;
+            }
+            $imageName = Str::random(10) . '.jpg';
+            $image->move(storage_path('app/public/service/'), $imageName);
+            $uploadedImages[] = $imageName;
+        }
+        if (count($uploadedImages) === 0) {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'images', 'message' => translate('Please upload at least one product photo')],
+            ]), 400);
+        }
         $service->thumbnails = json_encode($uploadedImages);
         $service->added_by = $request->user()->id;
         $service->is_featured = $request->is_featured;
