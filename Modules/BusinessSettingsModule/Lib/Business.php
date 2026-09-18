@@ -404,3 +404,103 @@ if (!function_exists('payment_method_allowed')) {
     }
 }
 
+if (!function_exists('razorpay_mode')) {
+    /**
+     * Active Razorpay mode: env RAZORPAY_MODE wins, else business_settings.mode.
+     */
+    function razorpay_mode(): string
+    {
+        $env = strtolower(trim((string) env('RAZORPAY_MODE', '')));
+        if (in_array($env, ['test', 'live'], true)) {
+            return $env;
+        }
+
+        try {
+            $config = business_config('razor_pay', 'payment_config');
+            $mode = strtolower((string) ($config->mode ?? 'live'));
+            return $mode === 'test' ? 'test' : 'live';
+        } catch (\Throwable $exception) {
+            return 'live';
+        }
+    }
+}
+
+if (!function_exists('razorpay_credentials')) {
+    /**
+     * Resolve Key ID + Secret. Prefer .env, else DB bucket for active mode.
+     *
+     * @return array{api_key:?string,api_secret:?string,mode:string,source:string}
+     */
+    function razorpay_credentials(): array
+    {
+        $mode = razorpay_mode();
+        $envKey = trim((string) env('RAZORPAY_KEY_ID', env('RAZORPAY_KEY', '')));
+        $envSecret = trim((string) env('RAZORPAY_KEY_SECRET', env('RAZORPAY_SECRET', '')));
+
+        if ($envKey !== '' && $envSecret !== '') {
+            return [
+                'api_key' => $envKey,
+                'api_secret' => $envSecret,
+                'mode' => $mode,
+                'source' => 'env',
+            ];
+        }
+
+        $apiKey = null;
+        $apiSecret = null;
+        try {
+            $config = business_config('razor_pay', 'payment_config');
+            if ($config) {
+                $values = $mode === 'test'
+                    ? (array) ($config->test_values ?? [])
+                    : (array) ($config->live_values ?? []);
+                $apiKey = $values['api_key'] ?? null;
+                $apiSecret = $values['api_secret'] ?? null;
+            }
+        } catch (\Throwable $exception) {
+            // ignore
+        }
+
+        return [
+            'api_key' => $apiKey ? (string) $apiKey : null,
+            'api_secret' => $apiSecret ? (string) $apiSecret : null,
+            'mode' => $mode,
+            'source' => 'db',
+        ];
+    }
+}
+
+if (!function_exists('ensure_razorpay_config')) {
+    /**
+     * Load credentials into config('razor_config') for checkout + verify.
+     * In test mode, refuse rzp_live_* keys unless RAZORPAY_ALLOW_LIVE_IN_TEST=true.
+     */
+    function ensure_razorpay_config(): ?array
+    {
+        $creds = razorpay_credentials();
+        $apiKey = $creds['api_key'] ?? null;
+        $apiSecret = $creds['api_secret'] ?? null;
+
+        if (!$apiKey || !$apiSecret) {
+            \Illuminate\Support\Facades\Config::set('razor_config', null);
+            return null;
+        }
+
+        $mode = $creds['mode'] ?? 'live';
+        $allowLiveInTest = filter_var(env('RAZORPAY_ALLOW_LIVE_IN_TEST', false), FILTER_VALIDATE_BOOLEAN);
+        if ($mode === 'test' && str_starts_with($apiKey, 'rzp_live_') && !$allowLiveInTest) {
+            \Illuminate\Support\Facades\Config::set('razor_config', null);
+            return null;
+        }
+
+        $config = [
+            'api_key' => $apiKey,
+            'api_secret' => $apiSecret,
+            'mode' => $mode,
+        ];
+        \Illuminate\Support\Facades\Config::set('razor_config', $config);
+
+        return $config;
+    }
+}
+

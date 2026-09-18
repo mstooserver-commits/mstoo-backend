@@ -40,4 +40,11 @@ return [
         'otp_template' => env('SANDESH_SMS_OTP_TEMPLATE', 'Your OTP is __OTP__,Valid for 10 minutes. powedred by one text'),
     ],
 
+    'razorpay' => [
+        'mode' => env('RAZORPAY_MODE', 'test'),
+        'key_id' => env('RAZORPAY_KEY_ID', env('RAZORPAY_KEY')),
+        'key_secret' => env('RAZORPAY_KEY_SECRET', env('RAZORPAY_SECRET')),
+        'allow_live_in_test' => env('RAZORPAY_ALLOW_LIVE_IN_TEST', false),
+    ],
+
 ];

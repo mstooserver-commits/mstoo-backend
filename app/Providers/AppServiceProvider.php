@@ -42,6 +42,10 @@ class AppServiceProvider extends ServiceProvider
 
             Config::set('default_pagination', 25);
             Paginator::useBootstrap();
+
+            if (function_exists('ensure_razorpay_config')) {
+                ensure_razorpay_config();
+            }
         } catch (\Exception $ex) {
             info($ex);
         }

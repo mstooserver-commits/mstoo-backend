@@ -93,6 +93,9 @@ class ServiceListingPresenter
         $service->setAttribute('thumbnail', $thumbFile);
         $service->setAttribute('cover_image_full_url', $coverUrl);
         $service->setAttribute('thumbnail_full_url', $thumbUrl);
+        if (\Illuminate\Support\Facades\Schema::hasColumn('services', 'slug')) {
+            $service->setAttribute('slug', $service->slug ?: null);
+        }
 
         $short = trim(preg_replace('/\s+/', ' ', strip_tags((string) $service->short_description)));
         $service->setAttribute('short_description', $short !== '' ? $short : null);

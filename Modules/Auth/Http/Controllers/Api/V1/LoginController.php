@@ -456,7 +456,21 @@ class LoginController extends Controller
     {
         $user->recordLastLogin();
 
-        return ['token' => $user->createToken($access_type)->accessToken, 'is_active' => $user['is_active']];
+        return [
+            'token' => $user->createToken($access_type)->accessToken,
+            'is_active' => $user['is_active'],
+            'user' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'profile_image' => $user->profile_image,
+                'user_type' => $user->user_type,
+                'is_phone_verified' => (int) $user->is_phone_verified,
+                'is_email_verified' => (int) $user->is_email_verified,
+            ],
+        ];
     }
 
     /**

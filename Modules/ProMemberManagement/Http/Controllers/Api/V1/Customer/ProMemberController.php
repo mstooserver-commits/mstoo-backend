@@ -102,6 +102,7 @@ class ProMemberController extends Controller
             'plan_id' => 'required|uuid',
             'payment_method' => 'required|in:wallet_payment,razor_pay',
             'callback' => 'nullable|url',
+            'payment_platform' => 'nullable|in:app,web,flutter,next',
         ]);
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
@@ -137,13 +138,16 @@ class ProMemberController extends Controller
             'access_token' => base64_encode($customer->id),
             'membership_id' => $membership->id,
             'callback' => $request->callback,
+            'payment_platform' => $request->get('payment_platform', 'app'),
         ]));
 
         return response()->json(response_formatter(DEFAULT_200, [
             'membership' => $membership,
             'amount' => $membership->amount_paid,
             'currency' => currency_code(),
+            'payment_platform' => $request->get('payment_platform', 'app'),
             'payment_url' => url('/payment/pro-member/razor-pay?' . $query),
+            'redirect_url' => url('/payment/pro-member/razor-pay?' . $query),
         ]), 200);
     }
 

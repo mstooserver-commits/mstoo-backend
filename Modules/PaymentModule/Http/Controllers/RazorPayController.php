@@ -9,8 +9,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Routing\Redirector;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Modules\BidModule\Entities\PostBid;
@@ -27,20 +25,7 @@ class RazorPayController extends Controller
 
     public function __construct()
     {
-        $config = business_config('razor_pay', 'payment_config');
-        if (!is_null($config) && $config->mode == 'live') {
-            $razor = $config->live_values;
-        } elseif (!is_null($config) && $config->mode == 'test') {
-            $razor = $config->test_values;
-        }
-
-        if ($razor) {
-            $config = array(
-                'api_key' => $razor['api_key'],
-                'api_secret' => $razor['api_secret']
-            );
-            Config::set('razor_config', $config);
-        }
+        ensure_razorpay_config();
     }
 
     /**

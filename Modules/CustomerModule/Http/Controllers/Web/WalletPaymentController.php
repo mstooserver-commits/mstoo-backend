@@ -4,7 +4,6 @@ namespace Modules\CustomerModule\Http\Controllers\Web;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Config;
 use Modules\CustomerModule\Entities\WalletAddFundRequest;
 use Modules\CustomerModule\Services\WalletFundService;
 use Modules\UserManagement\Entities\User;
@@ -14,19 +13,7 @@ class WalletPaymentController extends Controller
 {
     public function __construct(private WalletFundService $service)
     {
-        $config = business_config('razor_pay', 'payment_config');
-        $razor = null;
-        if (!is_null($config) && $config->mode == 'live') {
-            $razor = $config->live_values;
-        } elseif (!is_null($config) && $config->mode == 'test') {
-            $razor = $config->test_values;
-        }
-        if ($razor) {
-            Config::set('razor_config', [
-                'api_key' => $razor['api_key'] ?? null,
-                'api_secret' => $razor['api_secret'] ?? null,
-            ]);
-        }
+        ensure_razorpay_config();
     }
 
     public function razorPay(Request $request)

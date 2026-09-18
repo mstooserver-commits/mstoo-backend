@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Support\MediaStorage;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\Service;
@@ -344,12 +345,18 @@ class ServiceController extends Controller
         $service->longitude = $request->longitude;
 		//
 
-		$img = $request->cover_image;
-		$file = base64_decode($img);
-		$folderName = storage_path('app/public/service/');
-		$safeName = Str::random(10).'.'.'jpg';
-		$folder = file_put_contents($folderName.$safeName, $file);
-		$cover_image = $safeName;
+		try {
+            $cover_image = MediaStorage::storeImage($request->cover_image, 'service');
+        } catch (\InvalidArgumentException $exception) {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'cover_image', 'message' => $exception->getMessage()],
+            ]), 400);
+        } catch (\Throwable $exception) {
+            report($exception);
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'cover_image', 'message' => translate('failed_to_upload_cover_image')],
+            ]), 400);
+        }
 
         $service->cover_image = $cover_image;
         $service->thumbnail = $cover_image;
@@ -367,9 +374,13 @@ class ServiceController extends Controller
             if (!$image) {
                 continue;
             }
-            $imageName = Str::random(10) . '.jpg';
-            $image->move(storage_path('app/public/service/'), $imageName);
-            $uploadedImages[] = $imageName;
+            try {
+                $uploadedImages[] = MediaStorage::storeUploadedFile($image, 'service');
+            } catch (\InvalidArgumentException $exception) {
+                return response()->json(response_formatter(DEFAULT_400, null, [
+                    ['error_code' => 'images', 'message' => $exception->getMessage()],
+                ]), 400);
+            }
         }
         if (count($uploadedImages) === 0) {
             return response()->json(response_formatter(DEFAULT_400, null, [
@@ -665,33 +676,32 @@ class ServiceController extends Controller
 
 	        ]);
 	        $cat = DB::table('categories')->where('id', $request->sub_category_id)->first();
-
-
-
-	        // $service->category_id = $cat->parent_id;
-
-	        // $service->name = $request->name;
-	        // $service->sub_category_id = $request->sub_category_id;
-	        // $service->short_description = $request->short_description;
-	        // $service->description = $request->description;
-	        // $service->availability = $request->availability;
+            $existing = DB::table('services')->where('id', $id)->first();
+            if (!$existing) {
+                return response()->json(response_formatter(DEFAULT_204), 200);
+            }
 
 	        if($request->cover_image != ""){
-	            $img = $request->cover_image;
-	            $file = base64_decode($img);
-	            $folderName = storage_path('app/public/service/');
-	            $safeName = Str::random(10).'.'.'jpg';
-	            $folder = file_put_contents($folderName.$safeName, $file);
-	            $cover_image = $safeName;
-	        }
-	        
+	            try {
+                    $cover_image = MediaStorage::storeImage($request->cover_image, 'service');
+                } catch (\InvalidArgumentException $exception) {
+                    return response()->json(response_formatter(DEFAULT_400, null, [
+                        ['error_code' => 'cover_image', 'message' => $exception->getMessage()],
+                    ]), 400);
+                } catch (\Throwable $exception) {
+                    report($exception);
+                    return response()->json(response_formatter(DEFAULT_400, null, [
+                        ['error_code' => 'cover_image', 'message' => translate('failed_to_upload_cover_image')],
+                    ]), 400);
+                }
+	        } else {
+                $cover_image = $existing->cover_image;
+            }
 
 	        if($request->file('images') != ""){
 	            $uploadedImages = [];
 	            foreach ($request->file('images') as $image) {
-	            // $imageName = time() . '_' . $image->getClientOriginalName();
-	            $imageName = Str::random(10).'.'.'jpg';
-	            $image->move(storage_path('app/public/service/'), $imageName);
+	            $imageName = MediaStorage::storeUploadedFile($image, 'service');
 	            $uploadedImages[] = $imageName;
 	            }
 	        }
@@ -868,10 +878,20 @@ class ServiceController extends Controller
     }
 
 
-	// Get razorpay payment data
+	// Get razorpay payment data (same credentials as booking / wallet)
 	public function getpaymentgateway(Request $request): JsonResponse
     {
+        $config = ensure_razorpay_config();
+        if ($config && !empty($config['api_key']) && !empty($config['api_secret'])) {
+            return response()->json(response_formatter(DEFAULT_200, [
+                'name' => 'razorpay',
+                'key_id' => $config['api_key'],
+                'key_secret' => $config['api_secret'],
+                'mode' => $config['mode'] ?? razorpay_mode(),
+            ]), 200);
+        }
 
+        // Legacy fallback table (if still populated with valid keys)
         $gateway = DB::table('payment_gateways')->first();
         if ($gateway) {
             return response()->json(response_formatter(DEFAULT_200, $gateway), 200);

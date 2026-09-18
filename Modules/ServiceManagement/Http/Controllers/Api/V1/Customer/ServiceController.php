@@ -410,7 +410,12 @@ class ServiceController extends Controller
      */
     public function show(Request $request, string $id): JsonResponse
     {
-        $service = $this->service->where('id', $id)
+        $service = $this->service->where(function ($query) use ($id) {
+                $query->where('id', $id);
+                if (\Illuminate\Support\Facades\Schema::hasColumn('services', 'slug')) {
+                    $query->orWhere('slug', $id);
+                }
+            })
             ->with(['category.children', 'variations', 'faqs' => function ($query) {
                 return $query->where('is_active', 1);
             }])
@@ -426,7 +431,7 @@ class ServiceController extends Controller
 
             //visited service log
             if (auth('api')->user()) {
-                $this->visited_service_update(auth('api')->user()->id, $id);
+                $this->visited_service_update(auth('api')->user()->id, $service->id);
 
                 //search log volume update
                 if($request->has('attribute') && $request->attribute != 'service') {
@@ -444,6 +449,17 @@ class ServiceController extends Controller
             }
 
             (new ServiceListingPresenter())->decorateOne($service, null, false);
+            $service->setAttribute('seo', [
+                'title' => $service->name,
+                'description' => \Illuminate\Support\Str::limit(strip_tags((string) ($service->short_description ?: $service->description)), 160),
+                'image' => $service->cover_image_full_url ?? null,
+                'canonical_path' => '/ads/' . ($service->slug ?: $service->id),
+                'slug' => $service->slug ?? null,
+            ]);
+            // Hide private provider fields for public/web consumers.
+            if ($service->relationLoaded('poster') || isset($service->poster)) {
+                // keep public-safe poster display only via existing accessors if present
+            }
             return response()->json(response_formatter(DEFAULT_200, $service), 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 200);

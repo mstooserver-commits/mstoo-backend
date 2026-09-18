@@ -114,7 +114,13 @@ class BookingController extends Controller
             }
 
             try {
-                $api = new \Razorpay\Api\Api(config('razor_config.api_key'), config('razor_config.api_secret'));
+                $razor = ensure_razorpay_config();
+                if (!$razor || empty($razor['api_key']) || empty($razor['api_secret'])) {
+                    return response()->json(response_formatter(DEFAULT_400, null, [
+                        ['error_code' => 'razorpay_config', 'message' => 'Razorpay test keys are not configured. Set RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET or update Admin payment settings (rzp_test_*).'],
+                    ]), 400);
+                }
+                $api = new \Razorpay\Api\Api($razor['api_key'], $razor['api_secret']);
 
                 if (!empty($orderId) && !empty($signature)) {
                     $api->utility->verifyPaymentSignature([

@@ -149,6 +149,14 @@ class PaymentConfigController extends Controller
         $existing = $this->business_setting->where(['key_name' => $request['gateway'], 'settings_type' => 'payment_config'])->first();
         $validation = app(BusinessSetupService::class)->mergePaymentSecrets($validation, $existing->live_values ?? []);
 
+        if ($request['gateway'] === 'razor_pay' && ($request['mode'] ?? '') === 'test') {
+            $key = (string) ($validation['api_key'] ?? '');
+            if ($key !== '' && str_starts_with($key, 'rzp_live_')) {
+                Toastr::error(translate('razorpay_test_mode_requires_rzp_test_keys'));
+                return back()->withInput();
+            }
+        }
+
         $this->business_setting->updateOrCreate(['key_name' => $request['gateway'], 'settings_type' => 'payment_config'], [
             'key_name' => $request['gateway'],
             'live_values' => $validation,
@@ -157,6 +165,24 @@ class PaymentConfigController extends Controller
             'mode' => $request['mode'],
             'is_active' => $request['status'],
         ]);
+
+        // Keep legacy payment_gateways row in sync for ads / older app builds
+        if ($request['gateway'] === 'razor_pay') {
+            try {
+                \Illuminate\Support\Facades\DB::table('payment_gateways')->updateOrInsert(
+                    ['name' => 'razorpay'],
+                    [
+                        'key_id' => $validation['api_key'] ?? '',
+                        'key_secret' => $validation['api_secret'] ?? '',
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ]
+                );
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+            ensure_razorpay_config();
+        }
 
         admin_audit('business_settings.payment_updated', $request['gateway'], [
             'status' => $request['status'],
@@ -180,6 +206,16 @@ class PaymentConfigController extends Controller
         }
 
         $values = $gateway->live_values ?? [];
+        if (($gateway->mode ?? '') === 'test' && !empty($gateway->test_values)) {
+            $values = array_merge((array) $values, (array) $gateway->test_values);
+        }
+        if ($request['gateway'] === 'razor_pay') {
+            $resolved = ensure_razorpay_config();
+            if ($resolved) {
+                $values['api_key'] = $resolved['api_key'];
+                $values['api_secret'] = $resolved['api_secret'];
+            }
+        }
         $ok = false;
         $message = translate('connection_failed');
 

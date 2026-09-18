@@ -130,6 +130,7 @@ class ConfigController extends Controller
         }
 
         $appLanguages = customer_app_languages();
+        $razorCfg = ensure_razorpay_config() ?: [];
 
         return response()->json(response_formatter(DEFAULT_200, [
             'business_name' => settings_live('business_name', 'business_information'),
@@ -138,7 +139,9 @@ class ConfigController extends Controller
             'business_address' => settings_live('business_address', 'business_information'),
             'business_phone' => settings_live('business_phone', 'business_information') ?: '',
             'business_email' => settings_live('business_email', 'business_information'),
-            'base_url' => 'https://api.mstoo.co.in/api/v1/',
+            'base_url' => rtrim(config('app.url'), '/') . '/api/v1/',
+            'frontend_url' => env('FRONTEND_URL'),
+            'admin_url' => env('ADMIN_URL'),
             'currency_decimal_point' => 0,
             'currency_code' => currency_code() ?: 'INR',
             'currency_symbol' => currency_symbol() ?: '₹',
@@ -171,7 +174,14 @@ class ConfigController extends Controller
             'min_versions' => $minVersions,
             'app_url_playstore' => ($playstore?->is_active ?? 0) ? ($playstore->live_values ?? null) : null,
             'app_url_appstore' => ($appstore?->is_active ?? 0) ? ($appstore->live_values ?? null) : null,
-            'web_url' => (string) ($webUrl?->is_active ?? 0) === '1' ? ($webUrl->live_values ?? null) : null,
+            'web_url' => (string) ($webUrl?->is_active ?? 0) === '1' ? ($webUrl->live_values ?? null) : (env('FRONTEND_URL') ?: null),
+            'seo' => [
+                'site_title' => settings_live('business_name', 'business_information') ?: 'MSTOO',
+                'site_description' => settings_live('footer_text', 'business_information') ?: 'MSTOO marketplace',
+                'og_image' => settings_live('business_logo', 'business_information')
+                    ? url('storage/app/public/business/' . settings_live('business_logo', 'business_information'))
+                    : null,
+            ],
             'google_social_login' => (int) ($google_social_login?->live_values ?? 0),
             'facebook_social_login' => (int) ($facebook_social_login?->live_values ?? 0),
             'phone_number_visibility_for_chatting' => (int) (settings_live('phone_number_visibility_for_chatting', 'business_information', 0)),
@@ -195,6 +205,9 @@ class ConfigController extends Controller
             'default_commission' => settings_live('default_commission', 'business_information'),
             'blog_section_enabled' => blog_section_enabled() ? 1 : 0,
             'pro_member' => $proMember,
+            'razorpay_mode' => $razorCfg['mode'] ?? razorpay_mode(),
+            'razorpay_key' => $razorCfg['api_key'] ?? null,
+            'razorpay_secret' => $razorCfg['api_secret'] ?? null,
         ]), 200);
     }
 

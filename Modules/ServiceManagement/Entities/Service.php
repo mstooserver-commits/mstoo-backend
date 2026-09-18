@@ -10,11 +10,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Schema;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\PromotionManagement\Entities\DiscountType;
 use Modules\ReviewModule\Entities\Review;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 use Modules\UserManagement\Entities\User;
 
 class Service extends Model
@@ -203,6 +205,14 @@ class Service extends Model
 
     protected static function booted()
     {
+        static::saving(function (Service $service) {
+            if (Schema::hasColumn('services', 'slug')) {
+                if (empty($service->slug) && !empty($service->name)) {
+                    $service->slug = static::uniqueSlugFromName((string) $service->name, $service->id);
+                }
+            }
+        });
+
         static::addGlobalScope('zone_wise_data', function (Builder $builder) {
             if (is_customer_api_request()) {
                 if (!should_apply_customer_zone_scope()) {
@@ -220,5 +230,29 @@ class Service extends Model
                 }
             }
         });
+    }
+
+    public static function uniqueSlugFromName(string $name, $ignoreId = null): string
+    {
+        $base = Str::slug($name) ?: 'ad';
+        $base = Str::limit($base, 180, '');
+        $slug = $base;
+        $i = 1;
+        while (
+            static::withTrashed()
+                ->where('slug', $slug)
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->exists()
+        ) {
+            $suffix = $ignoreId ? substr(str_replace('-', '', (string) $ignoreId), 0, 8) : (string) $i;
+            $slug = $base . '-' . $suffix . ($i > 1 ? '-' . $i : '');
+            $i++;
+            if ($i > 50) {
+                $slug = $base . '-' . Str::lower(Str::random(8));
+                break;
+            }
+        }
+
+        return $slug;
     }
 }

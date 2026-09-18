@@ -100,7 +100,7 @@ class OTPVerificationController extends Controller
 
         //send otp
         if ($request['identity_type'] == 'phone') {
-            $response = SMS_gateway::send($identity, $otp, $request['signature_id']);
+            $response = SMS_gateway::send($identity, $otp, $request->input('signature_id'));
         } else if ($request['identity_type'] == 'email') {
             try {
                 Mail::to($identity)->send(new OTPMail($otp));

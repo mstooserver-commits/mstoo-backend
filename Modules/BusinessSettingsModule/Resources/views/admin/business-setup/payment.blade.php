@@ -24,9 +24,12 @@
                         <div class="mb-3">
                             <label class="form-label">{{ translate('mode') }}</label>
                             <select name="mode" class="form-control" {{ $can_edit ? '' : 'disabled' }}>
-                                <option value="live" {{ ($values['mode'] ?? '') == 'live' ? 'selected' : '' }}>{{ translate('live') }}</option>
-                                <option value="test" {{ ($values['mode'] ?? '') == 'test' ? 'selected' : '' }}>{{ translate('test') }}</option>
+                                <option value="live" {{ ($gateway->mode ?? $values['mode'] ?? '') == 'live' ? 'selected' : '' }}>{{ translate('live') }}</option>
+                                <option value="test" {{ ($gateway->mode ?? $values['mode'] ?? '') == 'test' ? 'selected' : '' }}>{{ translate('test') }}</option>
                             </select>
+                            @if(($gateway->key_name ?? '') === 'razor_pay')
+                                <small class="text-muted d-block mt-1">Test mode needs Key ID starting with <code>rzp_test_</code> (from Razorpay Dashboard → Test mode).</small>
+                            @endif
                         </div>
                         @foreach($values as $key => $value)
                             @if(!in_array($key, ['gateway', 'mode', 'status'], true))

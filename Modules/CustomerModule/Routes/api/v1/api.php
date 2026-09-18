@@ -61,6 +61,11 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
         Route::get('geocode-api', 'ConfigController@geocode_api');
     });
 
+    Route::group(['prefix' => 'web', 'as' => 'web.'], function () {
+        Route::get('home', [\Modules\CustomerModule\Http\Controllers\Api\V1\Customer\WebHomeController::class, 'home']);
+        Route::get('sitemap-services', [\Modules\CustomerModule\Http\Controllers\Api\V1\Customer\WebHomeController::class, 'sitemapServices']);
+    });
+
     Route::get('offline-payment', 'ConfigController@offline_payment');
     Route::get('offline-payment-method', 'ConfigController@offline_payment');
     Route::get('error-logs', 'ConfigController@offline_payment');
