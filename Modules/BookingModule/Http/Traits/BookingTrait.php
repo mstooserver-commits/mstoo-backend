@@ -180,9 +180,9 @@ trait BookingTrait
 
                 //booking_status_histories
                 $status_history = new BookingStatusHistory();
-                $status_history->changed_by = $booking->id;
-                $status_history->booking_id = $user_id;
-                $status_history->booking_status = isset($booking->provider_id) ? 'accepted' : 'pending';
+                $status_history->changed_by = $user_id;
+                $status_history->booking_id = $booking->id;
+                $status_history->booking_status = $booking->booking_status;
                 $status_history->save();
 
                 //provider notification
@@ -204,7 +204,7 @@ trait BookingTrait
                         Log::info("fcm not null");
                         Log::info($fcm_token);
 
-                        device_notification($fcm_token, translate('New booking has arrived'), null, null, $booking->id, 'booking');
+                        $this->sendBookingNotificationSafely($fcm_token, translate('New booking has arrived'), $booking->id);
                     }
                 } else {
 
@@ -214,7 +214,9 @@ trait BookingTrait
                     $providers = Provider::with('owner')->whereIn('id', $provider_ids)->where('zone_id', $booking->zone_id)->get();
                     foreach ($providers as $provider) {
                         $fcm_token = $provider->owner->fcm_token ?? null;
-                        if(!is_null($fcm_token)) device_notification($fcm_token, translate('New booking has arrived'), null, null, $booking->id, 'booking');
+                        if(!is_null($fcm_token)) {
+                            $this->sendBookingNotificationSafely($fcm_token, translate('New booking has arrived'), $booking->id);
+                        }
                     }
                 }
             });
@@ -222,7 +224,16 @@ trait BookingTrait
         }
 
         cart_clean($user_id);
-        event(new BookingRequested($booking));
+        try {
+            event(new BookingRequested($booking));
+        } catch (\Throwable $exception) {
+            // Booking is already committed. Notification failure must not make
+            // the client think that a captured payment/booking has failed.
+            Log::warning('Booking created but post-booking notification failed', [
+                'booking_id' => $booking->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
         return [
             'flag' => 'success',
@@ -307,15 +318,15 @@ trait BookingTrait
 
             //booking_status_histories
             $status_history = new BookingStatusHistory();
-            $status_history->changed_by = $booking->id;
-            $status_history->booking_id = $user_id;
-            $status_history->booking_status = isset($booking->provider_id) ? 'accepted' : 'pending';
+            $status_history->changed_by = $user_id;
+            $status_history->booking_id = $booking->id;
+            $status_history->booking_status = $booking->booking_status;
             $status_history->save();
 
             //provider notification
             $fcm_token = Provider::with('owner')->whereId($booking->provider_id)->first()->owner->fcm_token ?? null;
             if(!is_null($fcm_token)) {
-                device_notification($fcm_token, translate('New booking has arrived'), null, null, $booking->id, 'booking');
+                $this->sendBookingNotificationSafely($fcm_token, translate('New booking has arrived'), $booking->id);
             }
         });
 
@@ -629,6 +640,22 @@ trait BookingTrait
         }
 
         loyalty_point_transaction($user_id, $point);
+    }
+
+    private function sendBookingNotificationSafely(?string $token, string $message, string $bookingId): void
+    {
+        if (empty($token)) {
+            return;
+        }
+
+        try {
+            device_notification($token, $message, null, null, $bookingId, 'booking');
+        } catch (\Throwable $exception) {
+            Log::warning('Booking notification failed', [
+                'booking_id' => $bookingId,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
 

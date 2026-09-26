@@ -207,7 +207,6 @@ class ConfigController extends Controller
             'pro_member' => $proMember,
             'razorpay_mode' => $razorCfg['mode'] ?? razorpay_mode(),
             'razorpay_key' => $razorCfg['api_key'] ?? null,
-            'razorpay_secret' => $razorCfg['api_secret'] ?? null,
         ]), 200);
     }
 

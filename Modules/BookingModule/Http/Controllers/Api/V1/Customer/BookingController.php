@@ -113,6 +113,17 @@ class BookingController extends Controller
                 ]), 400);
             }
 
+            // The browser may retry after a timeout or a post-booking side effect
+            // may fail. Never charge/create the same payment twice.
+            $existingBookingIds = Booking::where('customer_id', $request->user()->id)
+                ->where('payment_method', 'razor_pay')
+                ->where('transaction_id', $paymentId)
+                ->pluck('id')
+                ->all();
+            if ($existingBookingIds !== []) {
+                return $this->bookingSuccessResponse($existingBookingIds, $paymentId, true);
+            }
+
             try {
                 $razor = ensure_razorpay_config();
                 if (!$razor || empty($razor['api_key']) || empty($razor['api_secret'])) {
@@ -145,6 +156,21 @@ class BookingController extends Controller
                         'message' => translate('Payment verification failed'),
                     ]), 400);
                 }
+
+
+                $expectedAmount = (int) round(cart_total($request->user()->id) * 100);
+                $paidAmount = (int) ($payment['amount'] ?? 0);
+                if ($expectedAmount < 1 || $paidAmount !== $expectedAmount) {
+                    Log::warning('Razorpay booking amount mismatch', [
+                        'payment_id' => $paymentId,
+                        'expected_amount' => $expectedAmount,
+                        'paid_amount' => $paidAmount,
+                    ]);
+                    return response()->json(response_formatter([
+                        'response_code' => 'payment_amount_mismatch_400',
+                        'message' => translate('Payment amount does not match the booking total'),
+                    ]), 400);
+                }
             } catch (\Throwable $e) {
                 Log::warning('Razorpay booking verify failed', [
                     'payment_id' => $paymentId,
@@ -172,9 +198,22 @@ class BookingController extends Controller
             $bookingIds = [$bookingIds];
         }
 
+        return $this->bookingSuccessResponse(
+            $bookingIds,
+            $request['payment_method'] === 'razor_pay' ? $paymentId : null
+        );
+    }
+
+    private function bookingSuccessResponse(array $bookingIds, ?string $paymentId = null, bool $idempotent = false): JsonResponse
+    {
         return response()->json(response_formatter(DEFAULT_200, [
-            'booking_ids' => $bookingIds,
+            'success' => true,
+            'payment_status' => $paymentId ? 'captured' : null,
+            'payment_id' => $paymentId,
+            'booking_ids' => array_values($bookingIds),
             'booking_id' => $bookingIds[0] ?? null,
+            'idempotent' => $idempotent,
+            'redirect_to' => '/bookings',
         ]), 200);
     }
 
@@ -186,10 +225,16 @@ class BookingController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $request->merge([
+            'limit' => $request->input('limit', 20),
+            'offset' => $request->input('offset', 1),
+            'booking_status' => $request->input('booking_status', 'all'),
+        ]);
+
         $validator = Validator::make($request->all(), [
-            'limit' => 'required|numeric|min:1|max:200',
-            'offset' => 'required|numeric|min:1|max:100000',
-            'booking_status' => 'required|in:all,' . implode(',', array_column(BOOKING_STATUSES, 'key')),
+            'limit' => 'integer|min:1|max:200',
+            'offset' => 'integer|min:1|max:100000',
+            'booking_status' => 'in:all,' . implode(',', array_column(BOOKING_STATUSES, 'key')),
             'string' => 'string'
         ]);
 

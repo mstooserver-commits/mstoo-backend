@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Route;
 Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V1\Customer', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix'=>'booking','as'=>'booking.'],function (){
         Route::get('/', 'BookingController@index');
+        Route::get('request/get', 'BookingController@bookingrequest');
         Route::get('/{booking_id}', 'BookingController@show');
         Route::post('request/send', 'BookingController@place_request')->middleware('hitLimiter');
         Route::put('status-update/{booking_id}', 'BookingController@status_update');
@@ -25,8 +26,6 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
 
         // custom route by naresh to reshedule booking by customer
         Route::put('schedule-update/{booking_id}', 'BookingController@schedule_update');
-        Route::get('request/get', 'BookingController@bookingrequest');
-
         // closed
     });
 });
