@@ -18,6 +18,7 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
         Route::get('/', 'BookingController@index');
         Route::get('request/get', 'BookingController@bookingrequest');
         Route::get('/{booking_id}', 'BookingController@show');
+        Route::post('request/razorpay', 'BookingController@razorpay_order');
         Route::post('request/send', 'BookingController@place_request')->middleware('hitLimiter');
         Route::put('status-update/{booking_id}', 'BookingController@status_update');
         Route::put('mark-completed/{booking_id}', 'BookingController@mark_completed');

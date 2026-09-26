@@ -128,7 +128,7 @@ class BookingController extends Controller
                 $razor = ensure_razorpay_config();
                 if (!$razor || empty($razor['api_key']) || empty($razor['api_secret'])) {
                     return response()->json(response_formatter(DEFAULT_400, null, [
-                        ['error_code' => 'razorpay_config', 'message' => 'Razorpay test keys are not configured. Set RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET or update Admin payment settings (rzp_test_*).'],
+                        ['error_code' => 'razorpay_config', 'message' => 'Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET, or save keys in Admin payment settings.'],
                     ]), 400);
                 }
                 $api = new \Razorpay\Api\Api($razor['api_key'], $razor['api_secret']);
@@ -202,6 +202,54 @@ class BookingController extends Controller
             $bookingIds,
             $request['payment_method'] === 'razor_pay' ? $paymentId : null
         );
+    }
+
+    /**
+     * Create a Razorpay order for the authenticated customer's cart.
+     * Amount comes from cart_total so checkout cannot underpay.
+     */
+    public function razorpay_order(Request $request): JsonResponse
+    {
+        if (!payment_method_allowed('razor_pay')) {
+            return response()->json(response_formatter(PAYMENT_METHOD_DISABLED_403), 403);
+        }
+
+        $razor = ensure_razorpay_config();
+        if (!$razor || empty($razor['api_key']) || empty($razor['api_secret'])) {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'razorpay_config', 'message' => 'Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET, or save keys in Admin payment settings.'],
+            ]), 400);
+        }
+
+        $amount = (int) round(cart_total($request->user()->id) * 100);
+        if ($amount < 100) {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'cart', 'message' => 'Cart total is too low to start a payment'],
+            ]), 400);
+        }
+
+        try {
+            $api = new \Razorpay\Api\Api($razor['api_key'], $razor['api_secret']);
+            $order = $api->order->create([
+                'amount' => $amount,
+                'currency' => 'INR',
+                'receipt' => 'bk' . substr(str_replace('-', '', (string) $request->user()->id), 0, 12) . time(),
+                'payment_capture' => 1,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Razorpay order create failed', ['error' => $e->getMessage()]);
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'razorpay_order', 'message' => 'Unable to start Razorpay checkout'],
+            ]), 400);
+        }
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'key' => $razor['api_key'],
+            'order_id' => $order['id'] ?? null,
+            'amount' => $amount,
+            'currency' => 'INR',
+            'mode' => $razor['mode'] ?? razorpay_mode(),
+        ]), 200);
     }
 
     private function bookingSuccessResponse(array $bookingIds, ?string $paymentId = null, bool $idempotent = false): JsonResponse
