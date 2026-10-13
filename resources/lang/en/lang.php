@@ -524,6 +524,7 @@
                                                                             jpeg  gif Image Size - maximum size 2 MB Image Ratio -
                                                                             1:1',
   'favicon' => 'Favicon',
+  'app_icon' => 'App icon',
   'Image format - jpg, png,
                                                                             jpeg, gif Image Size - maximum size 2 MB' => 'Image format - jpg  png
                                                                             jpeg  gif Image Size - maximum size 2 MB',

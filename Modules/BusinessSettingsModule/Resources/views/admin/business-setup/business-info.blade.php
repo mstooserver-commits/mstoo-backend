@@ -101,6 +101,15 @@
                     @endif
                 </div>
                 <div class="col-md-6">
+                    <label class="form-label">{{ translate('app_icon') }}</label>
+                    <input type="file" name="app_icon" class="form-control" accept="image/png,image/jpeg,image/webp" {{ $can_edit ? '' : 'disabled' }}>
+                    <small class="text-muted d-block mt-1">Square PNG recommended (1024 × 1024). This icon is shown inside the customer app.</small>
+                    <img class="mt-2 rounded" style="width:72px;height:72px;object-fit:cover" src="{{ asset('storage/app/public/business') }}/{{ setting_live($data_values, 'app_icon', '') }}" onerror="this.src='{{ asset('assets/admin-module/img/mstoo-logo.png') }}'" alt="App icon">
+                    @if($can_edit)
+                        <label class="d-block mt-2"><input type="checkbox" name="remove_app_icon" value="1"> {{ translate('remove') }}</label>
+                    @endif
+                </div>
+                <div class="col-md-6">
                     <label class="form-label">{{ translate('currency') }} *</label>
                     @php($currency_code = old('currency_code', setting_live($data_values, 'currency_code', 'INR')))
                     <select class="form-control" name="currency_code" required {{ $can_edit ? '' : 'disabled' }}>

@@ -135,6 +135,9 @@ class ConfigController extends Controller
         return response()->json(response_formatter(DEFAULT_200, [
             'business_name' => settings_live('business_name', 'business_information'),
             'logo' => settings_live('business_logo', 'business_information'),
+            'app_icon_url' => settings_live('app_icon', 'business_information')
+                ? url('storage/app/public/business/' . settings_live('app_icon', 'business_information'))
+                : url('assets/admin-module/img/mstoo-logo.png'),
             'country_code' => settings_live('country_code', 'business_information'),
             'business_address' => settings_live('business_address', 'business_information'),
             'business_phone' => settings_live('business_phone', 'business_information') ?: '',

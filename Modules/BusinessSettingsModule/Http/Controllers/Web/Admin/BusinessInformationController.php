@@ -119,8 +119,10 @@ class BusinessInformationController extends Controller
             'time_format' => 'nullable|string|max:20',
             'business_favicon' => 'nullable|image|mimes:jpeg,jpg,png,gif,webp|max:2048',
             'business_logo' => 'nullable|image|mimes:jpeg,jpg,png,gif,webp|max:2048',
+            'app_icon' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
             'remove_business_logo' => 'nullable|in:0,1',
             'remove_business_favicon' => 'nullable|in:0,1',
+            'remove_app_icon' => 'nullable|in:0,1',
             'default_commission' => 'required|numeric|min:0|max:100',
             'pagination_limit' => 'required|integer|min:1|max:200',
             'footer_text' => 'required|string|max:191',
@@ -150,7 +152,7 @@ class BusinessInformationController extends Controller
         }
 
         foreach ($validated as $key => $value) {
-            if ($key === 'remove_business_logo' || $key === 'remove_business_favicon') {
+            if (in_array($key, ['remove_business_logo', 'remove_business_favicon', 'remove_app_icon'], true)) {
                 continue;
             }
 
@@ -162,6 +164,10 @@ class BusinessInformationController extends Controller
                 $file = $this->business_setting->where('key_name', 'business_favicon')->first();
                 $value = file_uploader('business/', 'png', $request->file('business_favicon'), !empty($file->live_values) ? $file->live_values : '');
             }
+            if ($key == 'app_icon') {
+                $file = $this->business_setting->where('key_name', 'app_icon')->first();
+                $value = file_uploader('business/', 'png', $request->file('app_icon'), !empty($file->live_values) ? $file->live_values : '');
+            }
 
             $this->setup->save($key, $value, 'business_information');
         }
@@ -171,6 +177,9 @@ class BusinessInformationController extends Controller
         }
         if ($request->boolean('remove_business_favicon') && !$request->hasFile('business_favicon')) {
             $this->setup->save('business_favicon', '', 'business_information');
+        }
+        if ($request->boolean('remove_app_icon') && !$request->hasFile('app_icon')) {
+            $this->setup->save('app_icon', '', 'business_information');
         }
 
         session()->forget('pagination_limit');

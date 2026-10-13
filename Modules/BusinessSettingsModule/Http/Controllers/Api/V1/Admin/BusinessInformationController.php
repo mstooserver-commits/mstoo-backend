@@ -51,6 +51,7 @@ class BusinessInformationController extends Controller
             'time_format' => '',
             'business_favicon' => 'image',
             'business_logo' => 'image',
+            'app_icon' => 'image|mimes:jpeg,jpg,png,webp|max:2048',
             'default_commission' => 'required',
             'pagination_limit' => 'required',
             'footer_text' => 'required',
@@ -69,6 +70,10 @@ class BusinessInformationController extends Controller
             if ($key == 'business_favicon') {
                 $file = $this->business_setting->where('key_name', 'business_favicon')->first();
                 $value = file_uploader('business/', 'png', $request->file('business_favicon'), !empty($file->live_values) ? $file->live_values : '');
+            }
+            if ($key == 'app_icon') {
+                $file = $this->business_setting->where('key_name', 'app_icon')->first();
+                $value = file_uploader('business/', 'png', $request->file('app_icon'), !empty($file->live_values) ? $file->live_values : '');
             }
 
             $this->business_setting->updateOrCreate(['key_name' => $key], [
