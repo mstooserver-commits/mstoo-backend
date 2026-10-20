@@ -608,16 +608,9 @@ trait BookingTrait
      */
     private function referral_earning_calculation($user_id)
     {
-        $is_first_booking = Booking::where('customer_id', $user_id)->count('id');
-        if ($is_first_booking > 1) return false;
-
-        $referred_by_user = User::find($user_id)->referred_by_user ?? null;
-        if (is_null($referred_by_user)) return false;
-
-        $customer_referral_earning = business_config('customer_referral_earning', 'customer_config')->live_values??0;
-        $amount = business_config('referral_value_per_currency_unit', 'customer_config')->live_values??0;
-
-        if ($customer_referral_earning == 1) referral_earning_transaction_after_booking_complete($referred_by_user, $amount);
+        // Referral earnings are credited during registration. Keep this hook as a no-op so
+        // completing the referred customer's first booking cannot award the reward twice.
+        return false;
     }
 
     private function loyalty_point_calculation($user_id, $booking_amount)

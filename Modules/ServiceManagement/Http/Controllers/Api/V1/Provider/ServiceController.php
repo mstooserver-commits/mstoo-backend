@@ -331,6 +331,15 @@ class ServiceController extends Controller
 
         $cat = DB::table('categories')->where('id', $request->sub_category_id)->first();
 
+        if (!$cat) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        if ($request->is_featured === 'yes') {
+            $paymentError = $this->verifyFeaturedAdPayment($request, $cat);
+            if ($paymentError) return $paymentError;
+        }
+
         $service->category_id = $cat->parent_id;
 
         $service->name = $request->name;
@@ -879,6 +888,95 @@ class ServiceController extends Controller
 
 
 	// Get razorpay payment data (same credentials as booking / wallet)
+	public function featured_ad_razorpay_order(Request $request): JsonResponse
+    {
+        $request->validate(['sub_category_id' => 'required|uuid']);
+        $subCategory = DB::table('categories')->where('id', $request->sub_category_id)->first();
+        $category = $subCategory ? DB::table('categories')->where('id', $subCategory->parent_id)->first() : null;
+        $amount = (int) round((float) ($category->featured_price ?? 0) * 100);
+
+        if (!$category || $amount < 100 || !payment_method_allowed('razor_pay')) {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'featured_ad', 'message' => 'Featured ads are not available for this category'],
+            ]), 400);
+        }
+
+        $config = ensure_razorpay_config();
+        if (!$config || empty($config['api_key']) || empty($config['api_secret'])) {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'razorpay_config', 'message' => 'Razorpay is not configured'],
+            ]), 400);
+        }
+
+        try {
+            $api = new \Razorpay\Api\Api($config['api_key'], $config['api_secret']);
+            $order = $api->order->create([
+                'amount' => $amount,
+                'currency' => 'INR',
+                'receipt' => 'fa' . substr(str_replace('-', '', (string) $request->user()->id), 0, 12) . time(),
+                'payment_capture' => 1,
+                'notes' => ['sub_category_id' => $request->sub_category_id],
+            ]);
+        } catch (\Throwable $exception) {
+            Log::warning('Featured ad Razorpay order failed', ['error' => $exception->getMessage()]);
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'razorpay_order', 'message' => 'Unable to start featured ad payment'],
+            ]), 400);
+        }
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'key' => $config['api_key'],
+            'order_id' => $order['id'] ?? null,
+            'amount' => $amount,
+            'currency' => 'INR',
+        ]), 200);
+    }
+
+    private function verifyFeaturedAdPayment(Request $request, object $subCategory): ?JsonResponse
+    {
+        $category = DB::table('categories')->where('id', $subCategory->parent_id)->first();
+        $expectedAmount = (int) round((float) ($category->featured_price ?? 0) * 100);
+        if ($expectedAmount < 100 || !$request->filled('payment_id')) {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'featured_payment', 'message' => 'A valid featured ad payment is required'],
+            ]), 400);
+        }
+        if ($this->service->newQuery()->where('payment_id', $request->payment_id)->exists()) {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'featured_payment', 'message' => 'This payment has already been used'],
+            ]), 400);
+        }
+
+        try {
+            $config = ensure_razorpay_config();
+            if (!$config) throw new \RuntimeException('Razorpay is not configured');
+            $api = new \Razorpay\Api\Api($config['api_key'], $config['api_secret']);
+            if ($request->filled('signature') && $request->filled('order_id')) {
+                $api->utility->verifyPaymentSignature([
+                    'razorpay_order_id' => $request->order_id,
+                    'razorpay_payment_id' => $request->payment_id,
+                    'razorpay_signature' => $request->signature,
+                ]);
+            }
+            $payment = $api->payment->fetch($request->payment_id);
+            $paymentOrderId = $payment['order_id'] ?? null;
+            if (($request->filled('order_id') && $paymentOrderId !== $request->order_id)
+                || (int) ($payment['amount'] ?? 0) !== $expectedAmount
+                || !in_array($payment['status'] ?? null, ['captured', 'authorized'], true)) {
+                throw new \RuntimeException('Featured ad payment verification failed');
+            }
+            if (!$request->filled('order_id') && $paymentOrderId) {
+                $request->merge(['order_id' => $paymentOrderId]);
+            }
+        } catch (\Throwable $exception) {
+            Log::warning('Featured ad payment verification failed', ['error' => $exception->getMessage()]);
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'featured_payment', 'message' => 'Featured ad payment verification failed'],
+            ]), 400);
+        }
+        return null;
+    }
+
 	public function getpaymentgateway(Request $request): JsonResponse
     {
         $config = ensure_razorpay_config();

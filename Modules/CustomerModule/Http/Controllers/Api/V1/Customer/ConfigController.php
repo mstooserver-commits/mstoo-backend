@@ -191,6 +191,7 @@ class ConfigController extends Controller
             'wallet_status' => (int) (settings_live('customer_wallet', 'customer_config', 0)),
             'loyalty_point_status' => (int) (settings_live('customer_loyalty_point', 'customer_config', 0)),
             'referral_earning_status' => (int) (settings_live('customer_referral_earning', 'customer_config', 0)),
+            'referral_value_per_currency_unit' => (float) (settings_live('referral_value_per_currency_unit', 'customer_config', 0)),
             'direct_provider_booking' => (int) (settings_live('direct_provider_booking', 'business_information', 0)),
             'bidding_status' => (int) (settings_live('bidding_status', 'bidding_system', 0)),
             'phone_verification' => (int) (settings_live('phone_verification', 'service_setup', 0)),

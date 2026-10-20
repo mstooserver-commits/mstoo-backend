@@ -400,7 +400,7 @@ class ConfigurationController extends Controller
             $validator = Validator::make($request->all(), [
                 //referral earning
                 'customer_referral_earning' => 'in:0,1',
-                'referral_value_per_currency_unit' => 'required'
+                'referral_value_per_currency_unit' => 'required|numeric|min:0'
             ]);
 
             $filter = $validator->validated();

@@ -742,11 +742,10 @@ if (!function_exists('referral_earning_transaction_during_registration')) {
     function referral_earning_transaction_during_registration($user, $amount) {
 
         DB::transaction(function () use ($user, $amount) {
-
-            //Customer account
-            $account = Account::where('user_id', $user->id)->first();
-            $account->balance_pending += $amount;
-            $account->save();
+            // A successful referral is immediately spendable in the customer's wallet.
+            $user = User::query()->lockForUpdate()->findOrFail($user->id);
+            $user->wallet_balance = round((float) $user->wallet_balance + (float) $amount, 2);
+            $user->save();
 
             Transaction::create([
                 'ref_trx_id' => null,
@@ -754,11 +753,11 @@ if (!function_exists('referral_earning_transaction_during_registration')) {
                 'trx_type' => TRX_TYPE['referral_earning'],
                 'debit' => 0,
                 'credit' => $amount,
-                'balance' => $account->balance_pending,
+                'balance' => $user->wallet_balance,
                 'from_user_id' => $user->id,
                 'to_user_id' => $user->id,
                 'from_user_account' => null,
-                'to_user_account' => ACCOUNT_STATES[0]['value'],
+                'to_user_account' => 'user_wallet',
                 'reference_note' => $user->ref_code,
             ]);
 
