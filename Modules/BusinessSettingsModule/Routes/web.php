@@ -13,6 +13,10 @@ Route::group(['namespace' => 'Api\V1\Admin'], function () {
 });
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
+    Route::get('refer-earn', [ConfigurationController::class, 'get_customer_settings'])
+        ->middleware('mpc:system_management,view')
+        ->name('refer-earn');
+
     Route::group(['prefix' => 'business-settings', 'as' => 'business-settings.'], function () {
         Route::get('get-business-information', 'BusinessInformationController@business_information_get')
             ->middleware('mpc:system_management,view')
