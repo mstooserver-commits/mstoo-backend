@@ -50,10 +50,20 @@ class RegisterController extends Controller
             'gender' => 'in:male,female,others',
             'confirm_password' => 'required|same:password',
             'profile_image' =>  'image|mimes:jpeg,jpg,png,gif|max:10000',
+            'referral_code' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 403);
+        }
+
+        $user_who_referred = null;
+        $referralCode = trim((string) $request->input('referral_code', ''));
+        if ($referralCode !== '') {
+            $user_who_referred = User::where('ref_code', $referralCode)->first();
+            if (is_null($user_who_referred)) {
+                return response()->json(response_formatter(REFERRAL_CODE_INVALID_400), 404);
+            }
         }
 
         $user = $this->user;
@@ -85,21 +95,17 @@ class RegisterController extends Controller
         );
 
 
-        //referral earning calculation
-        if ($request->has('referral_code')) {
-            $customer_referral_earning = business_config('customer_referral_earning', 'customer_config')->live_values??0;
-            $amount = business_config('referral_value_per_currency_unit', 'customer_config')->live_values??0;
-            $user_who_referred = User::where('ref_code', $request['referral_code'])->first();
-
-            if (is_null($user_who_referred)) {
-                return response()->json(response_formatter(REFERRAL_CODE_INVALID_400), 404);
-            }
-
-            if($customer_referral_earning == 1 && isset($user_who_referred)) referral_earning_transaction_during_registration($user_who_referred, $amount);
-        }
-
         $user->referred_by = $user_who_referred->id??null;
         $user->save();
+
+        // Credit the configured reward only after the referred customer exists.
+        if ($user_who_referred) {
+            $customer_referral_earning = business_config('customer_referral_earning', 'customer_config')->live_values ?? 0;
+            $amount = (float) (business_config('referral_value_per_currency_unit', 'customer_config')->live_values ?? 0);
+            if ((int) $customer_referral_earning === 1 && $amount > 0) {
+                referral_earning_transaction_during_registration($user_who_referred, $amount);
+            }
+        }
 
         return response()->json(response_formatter(REGISTRATION_200), 200);
     }
