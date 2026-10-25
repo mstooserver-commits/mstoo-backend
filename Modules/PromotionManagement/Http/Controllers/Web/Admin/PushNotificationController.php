@@ -292,39 +292,28 @@ class PushNotificationController extends Controller
     public function settings(): View|Factory|Application
     {
         $config = $this->businessSetting->where(['key_name' => 'push_notification', 'settings_type' => 'third_party'])->first();
-        $values = $config->live_values ?? [];
+        $values = $config?->live_values ?? [];
 
-        $hasServerKey = !empty($values['server_key']);
-        $isEnabled = (int) ($config->is_active ?? 1) === 1 && (string) ($values['status'] ?? '1') !== '0';
+        $isEnabled = (int) ($config?->is_active ?? 1) === 1 && (string) ($values['status'] ?? '1') !== '0';
+        $firebase = fcm_credentials_info();
 
-        return view('promotionmanagement::admin.push-notification.settings', compact('hasServerKey', 'isEnabled'));
+        return view('promotionmanagement::admin.push-notification.settings', compact('firebase', 'isEnabled'));
     }
 
     public function updateSettings(Request $request): RedirectResponse
     {
         $request->validate([
             'status' => 'required|in:0,1',
-            'server_key' => 'nullable|string|max:4000',
         ]);
-
-        $config = $this->businessSetting->where(['key_name' => 'push_notification', 'settings_type' => 'third_party'])->first();
-        $existing = $config->live_values ?? [];
-        $submittedKey = trim((string) $request->input('server_key', ''));
-
-        if ($this->isMaskedSecret($submittedKey)) {
-            $submittedKey = '';
-        }
-
-        $serverKey = $submittedKey !== '' ? $submittedKey : ($existing['server_key'] ?? '');
-        if ($serverKey === '') {
-            return back()->withErrors(['server_key' => translate('firebase_server_key_is_required')]);
-        }
 
         $values = [
             'party_name' => 'push_notification',
-            'server_key' => $serverKey,
             'status' => (int) $request->input('status'),
         ];
+
+        if (!fcm_credentials_info()['configured']) {
+            return back()->withErrors(['firebase' => 'Firebase service-account credentials are missing or unreadable.']);
+        }
 
         $this->businessSetting->updateOrCreate(
             ['key_name' => 'push_notification', 'settings_type' => 'third_party'],

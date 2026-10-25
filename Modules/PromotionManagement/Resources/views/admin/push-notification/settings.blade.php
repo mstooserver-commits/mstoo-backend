@@ -33,13 +33,19 @@
                         </div>
 
                         <div class="mb-30">
-                            <label class="form-label" for="server-key">{{translate('firebase_server_key')}}</label>
-                            <input type="password" class="form-control" id="server-key" name="server_key"
-                                   autocomplete="new-password"
-                                   placeholder="{{ $hasServerKey ? translate('a_server_key_is_already_saved_enter_a_new_key_to_replace_it') : translate('enter_firebase_server_key') }}">
-                            <small class="text-muted d-block mt-2">
-                                {{ $hasServerKey ? translate('saved_credentials_are_hidden_for_security') : translate('this_key_is_stored_securely_and_never_shown_again') }}
-                            </small>
+                            <label class="form-label">Firebase HTTP v1</label>
+                            <div class="alert {{ $firebase['configured'] ? 'alert-success' : 'alert-danger' }} mb-0">
+                                <strong>{{ $firebase['configured'] ? 'Service account configured' : 'Service account is missing or unreadable' }}</strong>
+                                @if(!empty($firebase['project_id']))
+                                    <div class="mt-1">Project: {{ $firebase['project_id'] }}</div>
+                                @endif
+                                @if(!empty($firebase['file']))
+                                    <div class="mt-1">Credentials: {{ $firebase['file'] }}</div>
+                                @endif
+                            </div>
+                            @error('firebase')
+                                <small class="text-danger d-block mt-2">{{ $message }}</small>
+                            @enderror
                         </div>
 
                         <div class="d-flex justify-content-end">

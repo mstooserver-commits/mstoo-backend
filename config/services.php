@@ -47,4 +47,9 @@ return [
         'allow_live_in_test' => env('RAZORPAY_ALLOW_LIVE_IN_TEST', false),
     ],
 
+    'firebase' => [
+        'project_id' => env('FIREBASE_PROJECT_ID'),
+        'credentials' => env('FIREBASE_CREDENTIALS'),
+    ],
+
 ];
