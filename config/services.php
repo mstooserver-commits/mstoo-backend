@@ -30,14 +30,14 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-    'sandesh' => [
-        'api_key' => env('SANDESH_SMS_API_KEY'),
-        'username' => env('SANDESH_SMS_USERNAME', 'Mstoo'),
-        'signature' => env('SANDESH_SMS_SIGNATURE', 'ONTEXT'),
-        'msgtype' => env('SANDESH_SMS_MSGTYPE', 'PM'),
-        'entity_id' => env('SANDESH_SMS_ENTITY_ID', '1701161475967549249'),
-        'template_id' => env('SANDESH_SMS_TEMPLATE_ID', '1707166339431373460'),
-        'otp_template' => env('SANDESH_SMS_OTP_TEMPLATE', 'Your OTP is __OTP__,Valid for 10 minutes. powedred by one text'),
+    'whatsapp' => [
+        'enabled' => env('WHATSAPP_OTP_ENABLED', true),
+        'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
+        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'otp_template' => env('WHATSAPP_OTP_TEMPLATE'),
+        'template_language' => env('WHATSAPP_TEMPLATE_LANGUAGE', 'en_US'),
+        'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v24.0'),
+        'default_country_code' => env('WHATSAPP_DEFAULT_COUNTRY_CODE', '91'),
     ],
 
     'razorpay' => [
