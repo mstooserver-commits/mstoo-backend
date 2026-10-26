@@ -10,7 +10,7 @@ Additive APIs for the Next.js website. Flutter contracts remain unchanged.
 ## CORS / Origins
 
 Set in `.env`:
-
+php artisan tinker --execute="dump(\Illuminate\Support\Facades\Http::withToken(config('services.whatsapp.access_token'))->get('https://graph.facebook.com/v24.0/1427483248955077/message_templates', ['name' => 'mstoo_otp_verification'])->json());"
 ```
 FRONTEND_URL=https://mstoo.co.in
 ADMIN_URL=https://admin.mstoo.co.in

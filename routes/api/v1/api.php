@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Customer\LandingController;
+use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -20,4 +21,7 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
         Route::get('/contents', [LandingController::class, 'index']);
     });
 });
+
+Route::match(['get', 'post'], '/webhooks/whatsapp', WhatsAppWebhookController::class)
+    ->name('webhooks.whatsapp');
 
