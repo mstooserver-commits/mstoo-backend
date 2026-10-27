@@ -13,9 +13,8 @@ class SMS_gateway
 {
     public static function send($receiver, $otp, $signatureid = null): string
     {
-        $config = self::get_settings('releans');
-        if (isset($config) && (int) $config['status'] === 1) {
-            return self::custom_sms($receiver, $otp, $signatureid);
+        if ((bool) config('services.whatsapp.enabled', true)) {
+            return self::whatsapp($receiver, $otp);
         }
 
         $config = self::get_settings('twilio');
@@ -41,53 +40,65 @@ class SMS_gateway
         return 'not_found';
     }
 
-    private static function sandeshCredential(?array $config, string $configKey, string $envKey, string $default = ''): string
-    {
-        $value = $config[$configKey] ?? '';
-        if ($value !== '' && $value !== 'data') {
-            return $value;
-        }
-
-        return (string) env($envKey, $default);
-    }
-
     public static function generateOtp(): string
     {
         return (string) random_int(1000, 9999);
     }
 
-    public static function normalizeOtp(string $otp): string
+    public static function whatsapp($receiver, $otp): string
     {
-        $digits = preg_replace('/\D/', '', $otp);
+        $accessToken = (string) config('services.whatsapp.access_token', '');
+        $phoneNumberId = (string) config('services.whatsapp.phone_number_id', '');
+        $template = (string) config('services.whatsapp.otp_template', '');
+        $language = (string) config('services.whatsapp.template_language', 'en');
+        $graphVersion = (string) config('services.whatsapp.graph_version', 'v24.0');
 
-        return str_pad((string) ((int) $digits % 10000), 4, '0', STR_PAD_LEFT);
+        if ($accessToken === '' || $phoneNumberId === '' || $template === '') {
+            Log::error('WhatsApp OTP configuration is incomplete.');
+            return 'error';
+        }
+
+        try {
+            $response = Http::withToken($accessToken)->acceptJson()->timeout(30)->post(
+                "https://graph.facebook.com/{$graphVersion}/{$phoneNumberId}/messages",
+                [
+                    'messaging_product' => 'whatsapp',
+                    'to' => self::normalizeWhatsAppReceiver((string) $receiver),
+                    'type' => 'template',
+                    'template' => [
+                        'name' => $template,
+                        'language' => ['code' => $language],
+                        'components' => [
+                            ['type' => 'body', 'parameters' => [['type' => 'text', 'text' => (string) $otp]]],
+                            [
+                                'type' => 'button',
+                                'sub_type' => 'url',
+                                'index' => '0',
+                                'parameters' => [['type' => 'text', 'text' => (string) $otp]],
+                            ],
+                        ],
+                    ],
+                ]
+            );
+
+            if ($response->successful() && $response->json('messages.0.id')) {
+                return 'success';
+            }
+
+            Log::warning('WhatsApp OTP send failed.', ['status' => $response->status(), 'response' => $response->json()]);
+        } catch (\Throwable $exception) {
+            Log::error('WhatsApp OTP send exception: ' . $exception->getMessage());
+        }
+
+        return 'error';
     }
 
-    private static function buildSandeshOtpMessage(?array $config, string $otp): string
+    private static function normalizeWhatsAppReceiver(string $receiver): string
     {
-        $otp = self::normalizeOtp($otp);
-        $otpInMessage = '{' . $otp . '}';
+        $number = preg_replace('/\D/', '', $receiver);
+        $countryCode = preg_replace('/\D/', '', (string) config('services.whatsapp.default_country_code', '91'));
 
-        $template = self::sandeshCredential(
-            $config,
-            'otp_template',
-            'SANDESH_SMS_OTP_TEMPLATE',
-            'Your OTP is __OTP__,Valid for 10 minutes. powedred by one text'
-        );
-
-        if ($template === '' || $template === 'data') {
-            $template = 'Your OTP is __OTP__,Valid for 10 minutes. powedred by one text';
-        }
-
-        $template = preg_replace('/\{#var#\}|\{#OTP#\}/', '__OTP__', $template);
-        $template = preg_replace('/#OTP#/', '__OTP__', $template);
-        $template = preg_replace('/\{\d+\}/', '__OTP__', $template);
-
-        if (!str_contains($template, '__OTP__')) {
-            $template = 'Your OTP is __OTP__,Valid for 10 minutes. powedred by one text';
-        }
-
-        return str_replace('__OTP__', $otpInMessage, $template);
+        return strlen($number) === 10 && $countryCode !== '' ? $countryCode . $number : $number;
     }
 
     public static function twilio($receiver, $otp): string
@@ -242,67 +253,6 @@ class SMS_gateway
     //     return $response;
     // }
 
-
-    public static function custom_sms($receiver, $otp, $signatureid = null): string
-    {
-        $config = self::get_settings('releans');
-        $response = 'error';
-        if (isset($config) && (int) $config['status'] === 1) {
-            $apiKey = self::sandeshCredential($config, 'api_key', 'SANDESH_SMS_API_KEY');
-            if ($apiKey === '') {
-                Log::error('Sandesh SMS: missing api_key. Set SANDESH_SMS_API_KEY in .env or Releans api_key in admin.');
-
-                return 'error';
-            }
-
-            $otp = self::normalizeOtp($otp);
-            $message = self::buildSandeshOtpMessage($config, $otp);
-
-            try {
-                Log::info('Sandesh SMS to: ' . $receiver);
-
-                $number = preg_replace('/\D/', '', $receiver);
-                if (strlen($number) > 10 && str_starts_with($number, '91')) {
-                    $number = substr($number, -10);
-                }
-
-                $query = [
-                    'username' => self::sandeshCredential($config, 'username', 'SANDESH_SMS_USERNAME', 'Mstoo'),
-                    'dest' => $number,
-                    'apikey' => $apiKey,
-                    'signature' => self::sandeshCredential($config, 'from', 'SANDESH_SMS_SIGNATURE', 'ONTEXT'),
-                    'msgtype' => self::sandeshCredential($config, 'msgtype', 'SANDESH_SMS_MSGTYPE', 'PM'),
-                    'msgtxt' => $message,
-                    'entityid' => self::sandeshCredential($config, 'entity_id', 'SANDESH_SMS_ENTITY_ID', '1701161475967549249'),
-                    'templateid' => self::sandeshCredential($config, 'template_id', 'SANDESH_SMS_TEMPLATE_ID', '1707166339431373460'),
-                ];
-
-                $smssent = Http::timeout(30)->get(
-                    'https://sms.sandeshtech.in/pushapi/sendmsg?' . http_build_query($query)
-                );
-
-                $responseBody = $smssent->body();
-                Log::info('Sandesh SMS response: ' . $responseBody);
-
-                $body = $smssent->json();
-                if (isset($body['code']) && (string) $body['code'] === '6001') {
-                    $response = 'success';
-                } else {
-                    Log::warning('Sandesh SMS failed', [
-                        'code' => $body['code'] ?? null,
-                        'desc' => $body['desc'] ?? $responseBody,
-                        'dest' => $number,
-                        'msgtxt' => $message,
-                    ]);
-                }
-            } catch (\Exception $exception) {
-                Log::error('Sandesh SMS exception: ' . $exception->getMessage());
-                $response = 'error';
-            }
-        }
-
-        return $response;
-    }
 
     public static function get_settings($name)
     {

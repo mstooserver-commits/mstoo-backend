@@ -35,7 +35,7 @@ return [
         'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
         'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
         'otp_template' => env('WHATSAPP_OTP_TEMPLATE'),
-        'template_language' => env('WHATSAPP_TEMPLATE_LANGUAGE', 'en_US'),
+        'template_language' => env('WHATSAPP_TEMPLATE_LANGUAGE', 'en'),
         'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v24.0'),
         'default_country_code' => env('WHATSAPP_DEFAULT_COUNTRY_CODE', '91'),
         'webhook_verify_token' => env('WHATSAPP_WEBHOOK_VERIFY_TOKEN'),
