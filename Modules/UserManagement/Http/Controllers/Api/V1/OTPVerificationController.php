@@ -127,8 +127,8 @@ class OTPVerificationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'identity' => 'required',
-            'identity_type' => 'required',
-            'otp' => 'required|max:4'
+            'identity_type' => 'required|in:phone,email',
+            'otp' => 'required|digits_between:4,6'
         ]);
 
         if ($validator->fails()) {
@@ -161,6 +161,7 @@ class OTPVerificationController extends Controller
         $verify = $this->user_verification
             ->whereIn('identity', $identityCandidates)
             ->where('otp', $request['otp'])
+            ->where('expires_at', '>', now())
             ->first();
 
         if (isset($verify)) {
@@ -174,28 +175,15 @@ class OTPVerificationController extends Controller
             }
 
             if ($request['identity_type'] == 'email') {
-                $user = User::where('email', $identity)->first();
                 $user->is_email_verified = 1;
                 $user->save();
 
             } else if ($request['identity_type'] == 'phone') {
-                $user = User::where('phone', $identity)->first();
                 $user->is_phone_verified = 1;
                 $user->save();
             }
 
             $this->user_verification->whereIn('identity', $identityCandidates)->delete();
-            $user = $this->user
-            ->where(['phone' => $identity])
-            ->first();
-
-            if (!$user && $request['identity_type'] === 'phone') {
-                $user = $this->user->whereIn('phone', $identityCandidates)->first();
-            }
-
-            if (!$user) {
-                return response()->json(response_formatter(DEFAULT_404), 404);
-            }
 
             return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, CUSTOMER_PANEL_ACCESS)), 200);
         }
@@ -243,13 +231,12 @@ class OTPVerificationController extends Controller
 
             }
 
-            $user_verify =  $this->user_verification->whereIn('identity', $identityCandidates)->first();
-            if (!isset($user_verify)) {
-                $user_verify =  $this->user_verification;
+            $user_verify = $this->user_verification->whereIn('identity', $identityCandidates)->first();
+            if (isset($user_verify)) {
+                $user_verify->hit_count = ((int) $user_verify->hit_count) + 1;
+                $user_verify->temp_block_time = null;
+                $user_verify->save();
             }
-            $user_verify->hit_count += 1;
-            $user_verify->temp_block_time = null;
-            $user_verify->save();
         }
 
         return response()->json(response_formatter(OTP_VERIFICATION_FAIL_403), 403);

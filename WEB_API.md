@@ -132,6 +132,13 @@ POST /user/verification/send-otp
 
 `signature_id` is optional for web (Android SMS retriever). Empty does not hard-fail validation.
 
+Verify the WhatsApp OTP using the same phone identity:
+
+```json
+POST /user/verification/verify-otp
+{ "identity": "9876543210", "identity_type": "phone", "otp": "1234" }
+```
+
 ## Config extras
 
 `GET /customer/config` now also returns:
