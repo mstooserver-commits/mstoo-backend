@@ -24,6 +24,7 @@ class CustomerManagementTest extends TestCase
         }
 
         $this->actingAs($admin)->get('/admin/customer/list')->assertOk();
+        $this->actingAs($admin)->get('/admin/customer/list?search=')->assertOk();
         $this->actingAs($admin)->get('/admin/customer/create')->assertOk();
         $this->actingAs($admin)->get('/admin/customer/list?status=active&sort=latest&limit=10')->assertOk();
         $this->actingAs($admin)->get('/admin/customer/download')->assertOk();

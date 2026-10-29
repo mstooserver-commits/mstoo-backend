@@ -55,7 +55,9 @@ class CustomerController extends Controller
             ->paginate($filters['limit'])
             ->appends($filters);
 
-        $countBase = $this->customerListQuery($request, false);
+        // Aggregate queries must not inherit list ordering. In MySQL strict mode,
+        // ORDER BY created_at/bookings_count on SELECT COUNT(*) can raise a 500.
+        $countBase = $this->customerListQuery($request, false, false);
         $counts = [
             'all' => (clone $countBase)->count(),
             'active' => (clone $countBase)->where('is_active', 1)->count(),
@@ -566,11 +568,14 @@ class CustomerController extends Controller
         ];
     }
 
-    private function customerListQuery(Request $request, bool $applyStatus = true)
+    private function customerListQuery(Request $request, bool $applyStatus = true, bool $applySort = true)
     {
         $filters = $this->listFilters($request);
 
-        $query = $this->user->query()->whereIn('user_type', CUSTOMER_USER_TYPES)->withCount('bookings');
+        $query = $this->user->query()->whereIn('user_type', CUSTOMER_USER_TYPES);
+        if ($applySort) {
+            $query->withCount('bookings');
+        }
 
         if ($filters['search'] !== '') {
             $term = str_replace(['%', '_'], ['\%', '\_'], $filters['search']);
@@ -596,6 +601,10 @@ class CustomerController extends Controller
 
         if ($filters['document'] !== 'all' && Schema::hasColumn('users', 'document_status')) {
             $query->where('document_status', $filters['document']);
+        }
+
+        if (!$applySort) {
+            return $query;
         }
 
         if (in_array($filters['sort'], ['bookings_desc', 'bookings_asc'], true)) {
