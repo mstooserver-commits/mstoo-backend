@@ -40,11 +40,15 @@ class RegisterController extends Controller
             return response()->json(response_formatter(REGISTRATION_DISABLED_403), 403);
         }
 
+        $phoneCandidates = $this->phoneCandidates((string) $request->input('phone'));
+        $canonicalPhone = $phoneCandidates[0] ?? '';
+        $request->merge(['phone' => $canonicalPhone]);
+
         $validator = Validator::make($request->all(), [
             'first_name' => 'required',
             // 'last_name' => 'required',
             // 'email' => 'required|email|unique:users',
-            'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|unique:users',
+            'phone' => ['required', 'regex:/^\+91[0-9]{10}$/'],
             'password' => mstoo_password_rules(),
             'gender' => 'in:male,female,others',
             'confirm_password' => 'required|same:password',
@@ -53,7 +57,12 @@ class RegisterController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 403);
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 422);
+        }
+
+        if ($this->user->newQuery()->whereIn('phone', $phoneCandidates)->exists()) {
+            $validator->errors()->add('phone', translate('The phone has already been taken.'));
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 422);
         }
 
         $user_who_referred = null;
@@ -89,7 +98,39 @@ class RegisterController extends Controller
             }
         }
 
-        return response()->json(response_formatter(REGISTRATION_200), 200);
+        return response()->json(response_formatter(REGISTRATION_200, [
+            'user' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'user_type' => $user->user_type,
+                'is_active' => (int) $user->is_active,
+                'is_phone_verified' => (int) $user->is_phone_verified,
+            ],
+        ]), 200);
+    }
+
+    private function phoneCandidates(string $phone): array
+    {
+        $digits = preg_replace('/\D/', '', trim($phone)) ?: '';
+        $national = strlen($digits) > 10 ? substr($digits, -10) : $digits;
+
+        if (strlen($national) !== 10) {
+            return [];
+        }
+
+        return array_values(array_unique([
+            '+91' . $national,
+            '91' . $national,
+            '0' . $national,
+            $national,
+            '+91 ' . $national,
+            '+91-' . $national,
+            '91 ' . $national,
+            trim($phone),
+        ]));
     }
 
 

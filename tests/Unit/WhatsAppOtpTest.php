@@ -5,11 +5,26 @@ namespace Tests\Unit;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Modules\SMSModule\Lib\SMS_gateway;
+use Modules\Auth\Http\Controllers\Api\V1\RegisterController;
 use Modules\UserManagement\Http\Controllers\Api\V1\OTPVerificationController;
 use Tests\TestCase;
 
 class WhatsAppOtpTest extends TestCase
 {
+    public function test_registration_normalizes_phone_to_one_canonical_format(): void
+    {
+        $controller = (new \ReflectionClass(RegisterController::class))
+            ->newInstanceWithoutConstructor();
+        $method = new \ReflectionMethod($controller, 'phoneCandidates');
+        $method->setAccessible(true);
+
+        $candidates = $method->invoke($controller, ' +91 79885-32993 ');
+
+        $this->assertSame('+917988532993', $candidates[0]);
+        $this->assertContains('7988532993', $candidates);
+        $this->assertContains('07988532993', $candidates);
+    }
+
     public function test_otp_controller_matches_common_indian_phone_formats(): void
     {
         $controller = (new \ReflectionClass(OTPVerificationController::class))
