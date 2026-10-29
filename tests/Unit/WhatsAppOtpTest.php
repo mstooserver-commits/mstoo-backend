@@ -5,10 +5,27 @@ namespace Tests\Unit;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Modules\SMSModule\Lib\SMS_gateway;
+use Modules\UserManagement\Http\Controllers\Api\V1\OTPVerificationController;
 use Tests\TestCase;
 
 class WhatsAppOtpTest extends TestCase
 {
+    public function test_otp_controller_matches_common_indian_phone_formats(): void
+    {
+        $controller = (new \ReflectionClass(OTPVerificationController::class))
+            ->newInstanceWithoutConstructor();
+        $method = new \ReflectionMethod($controller, 'buildPhoneCandidates');
+        $method->setAccessible(true);
+
+        $candidates = $method->invoke($controller, ' +91 98765-43210 ');
+
+        $this->assertContains('+919876543210', $candidates);
+        $this->assertContains('+91 9876543210', $candidates);
+        $this->assertContains('919876543210', $candidates);
+        $this->assertContains('09876543210', $candidates);
+        $this->assertContains('9876543210', $candidates);
+    }
+
     public function test_local_phone_number_is_converted_to_whatsapp_format(): void
     {
         config(['services.whatsapp.default_country_code' => '91']);

@@ -10,7 +10,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Modules\SMSModule\Lib\SMS_gateway;
@@ -76,7 +75,7 @@ class OTPVerificationController extends Controller
             : [$identity];
 
         $user_verification = $this->user_verification->whereIn('identity', $identityCandidates)->first();
-        $otp_resend_time = business_config('otp_resend_time', 'otp_login_setup')?->live_values;
+        $otp_resend_time = business_config('otp_resend_time', 'otp_login_setup')?->live_values ?? 60;
         if(isset($user_verification) && Carbon::parse($user_verification->updated_at)->DiffInSeconds() < $otp_resend_time){
             $time= $otp_resend_time - Carbon::parse($user_verification->updated_at)->DiffInSeconds();
 
@@ -114,8 +113,14 @@ class OTPVerificationController extends Controller
 
         if ($response == 'success')
             return response()->json(response_formatter(DEFAULT_SENT_OTP_200), 200);
-        else
-            return response()->json(response_formatter(DEFAULT_SENT_OTP_FAILED_200), 200);
+
+        // A failed delivery must not leave behind an OTP that can still be used.
+        $this->user_verification
+            ->where('identity', $identity)
+            ->where('otp', $otp)
+            ->delete();
+
+        return response()->json(response_formatter(DEFAULT_SENT_OTP_FAILED_200), 200);
     }
 
     /**
@@ -199,7 +204,9 @@ class OTPVerificationController extends Controller
                     ]), 403);
                 }
 
-                if($verification_data->is_temp_blocked == 1 && Carbon::parse($verification_data->updated_at)->DiffInSeconds() >= $max_otp_hit_time){
+                if($verification_data->is_temp_blocked == 1
+                    && isset($verification_data->temp_block_time)
+                    && Carbon::parse($verification_data->temp_block_time)->DiffInSeconds() >= $temp_block_time){
 
                     $user_verify =  $this->user_verification->whereIn('identity', $identityCandidates)->first();
                     if (!isset($user_verify)) {
@@ -250,6 +257,7 @@ class OTPVerificationController extends Controller
 
     private function buildPhoneCandidates(string $identity): array
     {
+        $identity = trim($identity);
         $digits = preg_replace('/\D/', '', $identity);
         $withoutCountry = strlen($digits) > 10 ? substr($digits, -10) : $digits;
         $withCountry = '+91' . $withoutCountry;
@@ -257,7 +265,11 @@ class OTPVerificationController extends Controller
         return array_values(array_unique([
             $identity,
             $withCountry,
+            '+91 ' . $withoutCountry,
+            '+91-' . $withoutCountry,
             '91' . $withoutCountry,
+            '91 ' . $withoutCountry,
+            '0' . $withoutCountry,
             $withoutCountry,
         ]));
     }

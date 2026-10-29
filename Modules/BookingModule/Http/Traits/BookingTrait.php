@@ -185,27 +185,30 @@ trait BookingTrait
                 $status_history->booking_status = $booking->booking_status;
                 $status_history->save();
 
-                //provider notification
-                if (isset($booking->provider_id)) {
-                    // $fcm_token = Provider::with('owner')->whereId($booking->provider_id)->first()->owner->fcm_token ?? null;
-                    Log::info("provider id");
-                    Log::info($booking->provider_id);
+                // Notify every ad owner represented in this booking. A cart can
+                // contain multiple ads in the same sub-category, so relying on
+                // booking.provider_id only notified the last owner encountered.
+                $ownerIds = Service::query()
+                    ->whereIn('id', $cart_data->pluck('service_id')->filter()->unique()->all())
+                    ->whereNotNull('added_by')
+                    ->pluck('added_by')
+                    ->unique()
+                    ->values();
 
-                    // new code for notification
-                    $get_user = DB::table('users')->where('id', $booking->provider_id)->first();
-                    $fcm_token = $get_user->fcm_token ?? null;
-
-                    Log::info("fcm token");
-                    Log::info($fcm_token);
-                    // closed
-                    
-                    if(!is_null($fcm_token)) {
-
-                        Log::info("fcm not null");
-                        Log::info($fcm_token);
-
-                        $this->sendBookingNotificationSafely($fcm_token, translate('New booking has arrived'), $booking->id);
-                    }
+                if ($ownerIds->isNotEmpty()) {
+                    User::query()
+                        ->whereIn('id', $ownerIds)
+                        ->whereNotNull('fcm_token')
+                        ->where('fcm_token', '!=', '')
+                        ->pluck('fcm_token')
+                        ->unique()
+                        ->each(function (string $token) use ($booking) {
+                            $this->sendBookingNotificationSafely(
+                                $token,
+                                translate('New booking has arrived'),
+                                $booking->id
+                            );
+                        });
                 } else {
 
                     Log::info("else provider id");
