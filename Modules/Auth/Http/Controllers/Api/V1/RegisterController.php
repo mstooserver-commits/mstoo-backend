@@ -13,7 +13,6 @@ use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 
 use Illuminate\Support\Str;
-use Modules\SMSModule\Lib\SMS_gateway;
 
 class RegisterController extends Controller
 {
@@ -77,23 +76,6 @@ class RegisterController extends Controller
         $user->password = bcrypt($request->password);
         $user->user_type = 'customer';
         $user->is_active = 1;
-
-        $token = env('APP_ENV') != 'live' ? '1234' : rand(1000, 9999);
-        SMS_gateway::send($request->phone, $token);
-
-        // $data = DB::table('password_resets')
-        //     ->where('phone', $request->phone)
-        //     ->where(['token' => $token])->first();
-
-        DB::table('user_verifications')->insert(
-             array(
-                    'identity'     =>   $request->phone, 
-                    'identity_type'   =>   'phone',
-                    'otp'   =>   $token,
-                    'expires_at' => date("Y-m-d h:i:s", strtotime("+5 minutes"))
-             )
-        );
-
 
         $user->referred_by = $user_who_referred->id??null;
         $user->save();

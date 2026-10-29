@@ -77,8 +77,8 @@ class OTPVerificationController extends Controller
 
         $user_verification = $this->user_verification->whereIn('identity', $identityCandidates)->first();
         $otp_resend_time = business_config('otp_resend_time', 'otp_login_setup')?->live_values;
-        if(isset($user_verification) &&  Carbon::parse($user_verification->created_at)->DiffInSeconds() < $otp_resend_time){
-            $time= $otp_resend_time - Carbon::parse($user_verification->created_at)->DiffInSeconds();
+        if(isset($user_verification) && Carbon::parse($user_verification->updated_at)->DiffInSeconds() < $otp_resend_time){
+            $time= $otp_resend_time - Carbon::parse($user_verification->updated_at)->DiffInSeconds();
 
             return response()->json(response_formatter([
                 "response_code" => "auth_login_401",

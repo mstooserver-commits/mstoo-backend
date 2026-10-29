@@ -39,6 +39,7 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
     //  custom route by naresh for provider
     Route::post('add_service', 'ServiceController@add_service');
     Route::post('featured-ad/razorpay-order', 'ServiceController@featured_ad_razorpay_order');
+    Route::post('featured-ad/{id}/activate', 'ServiceController@activate_featured_ad');
     Route::post('add_services', [\Modules\ServiceManagement\Http\Controllers\Api\V1\Customer\BulkAdController::class, 'store']);
     Route::post('myservices', 'ServiceController@myservices');
     Route::get('getservice/{id}', 'ServiceController@getservice');

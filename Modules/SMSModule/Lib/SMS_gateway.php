@@ -14,7 +14,14 @@ class SMS_gateway
     public static function send($receiver, $otp, $signatureid = null): string
     {
         if ((bool) config('services.whatsapp.enabled', true)) {
-            return self::whatsapp($receiver, $otp);
+            $response = self::whatsapp($receiver, $otp);
+            if ($response === 'success') {
+                return $response;
+            }
+
+            Log::warning('WhatsApp OTP failed; trying the configured SMS gateway.', [
+                'receiver' => self::maskReceiver((string) $receiver),
+            ]);
         }
 
         $config = self::get_settings('twilio');
@@ -38,6 +45,12 @@ class SMS_gateway
         }
 
         return 'not_found';
+    }
+
+    private static function maskReceiver(string $receiver): string
+    {
+        $digits = preg_replace('/\D/', '', $receiver) ?: '';
+        return strlen($digits) > 4 ? str_repeat('*', strlen($digits) - 4) . substr($digits, -4) : '****';
     }
 
     public static function generateOtp(): string

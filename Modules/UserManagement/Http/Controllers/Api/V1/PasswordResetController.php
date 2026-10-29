@@ -7,7 +7,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Modules\SMSModule\Lib\SMS_gateway;
@@ -42,8 +41,10 @@ class PasswordResetController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        //exist check
-        $user = $this->user->where($request['identity_type'], $request['identity'])->first();
+        [$user, $identity, $identityCandidates] = $this->resolveUser(
+            (string) $request['identity'],
+            (string) $request['identity_type']
+        );
 
         if (!isset($user))
             return response()->json(response_formatter(AUTH_LOGIN_404), 404);
@@ -55,10 +56,10 @@ class PasswordResetController extends Controller
             return response()->json(response_formatter(DEFAULT_SENT_OTP_FAILED_200), 200);
 
         //resend time check
-        $user_verification = $this->user_verification->where('identity', $request['identity'])->first();
+        $user_verification = $this->user_verification->whereIn('identity', $identityCandidates)->first();
         $otp_resend_time = business_config('otp_resend_time', 'otp_login_setup')?->live_values;
-        if (isset($user_verification) && Carbon::parse($user_verification->created_at)->DiffInSeconds() < $otp_resend_time) {
-            $time = $otp_resend_time - Carbon::parse($user_verification->created_at)->DiffInSeconds();
+        if (isset($user_verification) && Carbon::parse($user_verification->updated_at)->DiffInSeconds() < $otp_resend_time) {
+            $time = $otp_resend_time - Carbon::parse($user_verification->updated_at)->DiffInSeconds();
 
             return response()->json(response_formatter([
                 "response_code" => "auth_login_401",
@@ -66,12 +67,12 @@ class PasswordResetController extends Controller
             ]), 401);
         }
 
-        $otp = env('APP_ENV') != 'live' ? '1234' : rand(1000, 9999);
+        $otp = SMS_gateway::generateOtp();
         $this->user_verification->updateOrCreate([
-            'identity' => $request['identity'],
+            'identity' => $identity,
             'identity_type' => $request['identity_type']
         ], [
-            'identity' => $request['identity'],
+            'identity' => $identity,
             'identity_type' => $request['identity_type'],
             'user_id' => null,
             'otp' => $otp,
@@ -80,10 +81,10 @@ class PasswordResetController extends Controller
 
         //send otp
         if ($request['identity_type'] == 'phone') {
-            $response = SMS_gateway::send($request['identity'], $otp);
+            $response = SMS_gateway::send($identity, $otp, $request->input('signature_id'));
         } else if ($request['identity_type'] == 'email') {
             try {
-                Mail::to($request['identity'])->send(new OTPMail($otp));
+                Mail::to($identity)->send(new OTPMail($otp));
                 $response = 'success';
             } catch (\Exception $exception) {
                 $response = 'error';
@@ -109,8 +110,8 @@ class PasswordResetController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'identity' => 'required',
-            'identity_type' => 'required',
-            'otp' => 'required|max:4'
+            'identity_type' => 'required|in:phone,email',
+            'otp' => 'required|digits_between:4,6'
         ]);
 
         if ($validator->fails()) {
@@ -124,7 +125,20 @@ class PasswordResetController extends Controller
         $max_otp_hit_time = $otpResend?->live_values ?? $otpResend?->test_values ?? 60;
         $temp_block_time = $otpBlock?->live_values ?? $otpBlock?->test_values ?? 600;
 
-        $verify = $this->user_verification->where(['identity' => $request['identity'], 'otp' => $request['otp']])->first();
+        [$user, $identity, $identityCandidates] = $this->resolveUser(
+            (string) $request['identity'],
+            (string) $request['identity_type']
+        );
+        if (!isset($user)) {
+            return response()->json(response_formatter(AUTH_LOGIN_404), 404);
+        }
+
+        $verify = $this->user_verification
+            ->whereIn('identity', $identityCandidates)
+            ->where('identity_type', $request['identity_type'])
+            ->where('otp', $request['otp'])
+            ->where('expires_at', '>', now())
+            ->first();
 
         if (isset($verify)) {
             if (isset($verify->temp_block_time) && Carbon::parse($verify->temp_block_time)->DiffInSeconds() <= $temp_block_time) {
@@ -136,10 +150,11 @@ class PasswordResetController extends Controller
 
             }
 
-            $this->user_verification->where(['identity' => $request['identity']])->delete();
+            // Keep the OTP until reset_password consumes it. Deleting it here
+            // made the following reset request impossible to authenticate.
             return response()->json(response_formatter(OTP_VERIFICATION_SUCCESS_200), 200);
         } else {
-            $verification_data = $this->user_verification->where('identity', $request['identity'])->first();
+            $verification_data = $this->user_verification->whereIn('identity', $identityCandidates)->first();
 
             if (isset($verification_data)) {
                 if (isset($verification_data->temp_block_time) && Carbon::parse($verification_data->temp_block_time)->DiffInSeconds() <= $temp_block_time) {
@@ -152,7 +167,7 @@ class PasswordResetController extends Controller
 
                 if ($verification_data->is_temp_blocked == 1 && Carbon::parse($verification_data->updated_at)->DiffInSeconds() >= $max_otp_hit_time) {
 
-                    $user_verify = $this->user_verification->where(['identity' => $request['identity']])->first();
+                    $user_verify = $this->user_verification->whereIn('identity', $identityCandidates)->first();
                     if (!isset($user_verify)) {
                         $user_verify = $this->user_verification;
                     }
@@ -165,7 +180,7 @@ class PasswordResetController extends Controller
 
                 if ($verification_data->hit_count >= $max_otp_hit && Carbon::parse($verification_data->updated_at)->DiffInSeconds() < $max_otp_hit_time && $verification_data->is_temp_blocked == 0) {
 
-                    $user_verify = $this->user_verification->where(['identity' => $request['identity']])->first();
+                    $user_verify = $this->user_verification->whereIn('identity', $identityCandidates)->first();
                     if (!isset($user_verify)) {
                         $user_verify = $this->user_verification;
                     }
@@ -182,13 +197,12 @@ class PasswordResetController extends Controller
 
             }
 
-            $user_verify = $this->user_verification->where(['identity' => $request['identity']])->first();
-            if (!isset($user_verify)) {
-                $user_verify = $this->user_verification;
+            $user_verify = $this->user_verification->whereIn('identity', $identityCandidates)->first();
+            if (isset($user_verify)) {
+                $user_verify->hit_count = ((int) $user_verify->hit_count) + 1;
+                $user_verify->temp_block_time = null;
+                $user_verify->save();
             }
-            $user_verify->hit_count += 1;
-            $user_verify->temp_block_time = null;
-            $user_verify->save();
         }
 
         return response()->json(response_formatter(OTP_VERIFICATION_FAIL_403), 403);
@@ -204,37 +218,64 @@ class PasswordResetController extends Controller
         $validator = Validator::make($request->all(), [
             'identity' => 'required',
             'identity_type' => 'required|in:email,phone',
-            'otp' => 'required|max:4',
-
-            'password' => 'required',
-            'confirm_password' => 'required|same:confirm_password'
+            'otp' => 'required|digits_between:4,6',
+            'password' => mstoo_password_rules(),
+            'confirm_password' => 'required|same:password'
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        [$user, $identity, $identityCandidates] = $this->resolveUser(
+            (string) $request['identity'],
+            (string) $request['identity_type']
+        );
+        if (!isset($user)) {
+            return response()->json(response_formatter(AUTH_LOGIN_404), 404);
+        }
+
         $user_verification = $this->user_verification
             ->where('identity_type', $request['identity_type'])
-            ->where('identity', $request['identity'])
+            ->whereIn('identity', $identityCandidates)
             ->where(['otp' => $request['otp']])
             ->where('expires_at', '>', now())
             ->first();
 
-        if (isset($user_verification)) {
+        if (!isset($user_verification)) {
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        $this->user->where($request['identity_type'], $request['identity'])
-            ->update([
-                'password' => bcrypt(str_replace(' ', '', $request['password']))
-            ]);
+        $user->password = bcrypt($request['password']);
+        $user->save();
 
         $this->user_verification
             ->where('identity_type', $request['identity_type'])
-            ->where('identity', $request['identity'])
+            ->whereIn('identity', $identityCandidates)
             ->where(['otp' => $request['otp']])->delete();
 
         return response()->json(response_formatter(DEFAULT_PASSWORD_RESET_200), 200);
+    }
+
+    private function resolveUser(string $identity, string $identityType): array
+    {
+        $identity = trim($identity);
+        if ($identityType === 'email') {
+            $user = $this->user->where('email', $identity)->first();
+            return [$user, $user?->email ?? $identity, [$identity]];
+        }
+
+        $digits = preg_replace('/\D/', '', $identity) ?: '';
+        $national = strlen($digits) > 10 ? substr($digits, -10) : $digits;
+        $candidates = array_values(array_unique(array_filter([
+            $identity,
+            '+91' . $national,
+            '91' . $national,
+            $national,
+        ])));
+        $user = $this->user->whereIn('phone', $candidates)->first();
+        $canonical = $user?->phone ?? ('+91' . $national);
+
+        return [$user, $canonical, array_values(array_unique([...$candidates, $canonical]))];
     }
 }

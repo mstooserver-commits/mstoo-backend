@@ -370,12 +370,7 @@ class ServiceController extends Controller
         $service->cover_image = $cover_image;
         $service->thumbnail = $cover_image;
         $uploadedImages = [];
-        $imageFiles = $request->file('images');
-        if (empty($imageFiles)) {
-            return response()->json(response_formatter(DEFAULT_400, null, [
-                ['error_code' => 'images', 'message' => translate('Please upload at least one product photo')],
-            ]), 400);
-        }
+        $imageFiles = $request->file('images', []);
         if (!is_array($imageFiles)) {
             $imageFiles = [$imageFiles];
         }
@@ -391,11 +386,8 @@ class ServiceController extends Controller
                 ]), 400);
             }
         }
-        if (count($uploadedImages) === 0) {
-            return response()->json(response_formatter(DEFAULT_400, null, [
-                ['error_code' => 'images', 'message' => translate('Please upload at least one product photo')],
-            ]), 400);
-        }
+        // cover_image is the first product photo. images[] contains only
+        // optional additional gallery photos, so a single-photo ad is valid.
         $service->thumbnails = json_encode($uploadedImages);
         $service->added_by = $request->user()->id;
         $service->is_featured = $request->is_featured;
@@ -890,8 +882,24 @@ class ServiceController extends Controller
 	// Get razorpay payment data (same credentials as booking / wallet)
 	public function featured_ad_razorpay_order(Request $request): JsonResponse
     {
-        $request->validate(['sub_category_id' => 'required|uuid']);
-        $subCategory = DB::table('categories')->where('id', $request->sub_category_id)->first();
+        $request->validate([
+            'sub_category_id' => 'nullable|required_without:service_id|uuid',
+            'service_id' => 'nullable|required_without:sub_category_id|uuid',
+        ]);
+
+        $service = null;
+        if ($request->filled('service_id')) {
+            $service = $this->service->newQuery()
+                ->where('id', $request->service_id)
+                ->where('added_by', $request->user()->id)
+                ->first();
+            if (!$service) {
+                return response()->json(response_formatter(DEFAULT_404), 404);
+            }
+        }
+
+        $subCategoryId = $service->sub_category_id ?? $request->sub_category_id;
+        $subCategory = DB::table('categories')->where('id', $subCategoryId)->first();
         $category = $subCategory ? DB::table('categories')->where('id', $subCategory->parent_id)->first() : null;
         $amount = (int) round((float) ($category->featured_price ?? 0) * 100);
 
@@ -915,7 +923,11 @@ class ServiceController extends Controller
                 'currency' => 'INR',
                 'receipt' => 'fa' . substr(str_replace('-', '', (string) $request->user()->id), 0, 12) . time(),
                 'payment_capture' => 1,
-                'notes' => ['sub_category_id' => $request->sub_category_id],
+                'notes' => array_filter([
+                    'sub_category_id' => $subCategoryId,
+                    'service_id' => $service->id ?? null,
+                    'user_id' => $request->user()->id,
+                ]),
             ]);
         } catch (\Throwable $exception) {
             Log::warning('Featured ad Razorpay order failed', ['error' => $exception->getMessage()]);
@@ -929,6 +941,44 @@ class ServiceController extends Controller
             'order_id' => $order['id'] ?? null,
             'amount' => $amount,
             'currency' => 'INR',
+        ]), 200);
+    }
+
+    public function activate_featured_ad(Request $request, string $id): JsonResponse
+    {
+        $request->validate([
+            'payment_id' => 'required|string',
+            'order_id' => 'required|string',
+            'signature' => 'required|string',
+        ]);
+
+        $service = $this->service->newQuery()
+            ->where('id', $id)
+            ->where('added_by', $request->user()->id)
+            ->first();
+        if (!$service) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $subCategory = DB::table('categories')->where('id', $service->sub_category_id)->first();
+        if (!$subCategory) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $paymentError = $this->verifyFeaturedAdPayment($request, $subCategory);
+        if ($paymentError) {
+            return $paymentError;
+        }
+
+        $service->is_featured = 'yes';
+        $service->order_id = $request->order_id;
+        $service->payment_id = $request->payment_id;
+        $service->signature = $request->signature;
+        $service->save();
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'id' => $service->id,
+            'is_featured' => $service->is_featured,
         ]), 200);
     }
 
@@ -980,11 +1030,10 @@ class ServiceController extends Controller
 	public function getpaymentgateway(Request $request): JsonResponse
     {
         $config = ensure_razorpay_config();
-        if ($config && !empty($config['api_key']) && !empty($config['api_secret'])) {
+        if ($config && !empty($config['api_key'])) {
             return response()->json(response_formatter(DEFAULT_200, [
                 'name' => 'razorpay',
                 'key_id' => $config['api_key'],
-                'key_secret' => $config['api_secret'],
                 'mode' => $config['mode'] ?? razorpay_mode(),
             ]), 200);
         }
