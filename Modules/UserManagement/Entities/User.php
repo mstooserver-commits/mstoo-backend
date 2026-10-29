@@ -147,8 +147,13 @@ class User extends Authenticatable
         return trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
     }
 
-    public function scopeWhereNameLike($query, string $term)
+    public function scopeWhereNameLike($query, ?string $term)
     {
+        $term = trim((string) $term);
+        if ($term === '') {
+            return $query;
+        }
+
         $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $term);
         $like = '%' . $escaped . '%';
 

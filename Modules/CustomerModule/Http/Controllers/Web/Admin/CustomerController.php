@@ -558,7 +558,9 @@ class CustomerController extends Controller
         }
 
         return [
-            'search' => $request->get('search', ''),
+            // ConvertEmptyStringsToNull turns `?search=` into null. Always expose
+            // a string to the query builder and Blade view.
+            'search' => trim((string) $request->get('search', '')),
             'status' => $request->get('status', 'all'),
             'from_date' => $from,
             'to_date' => $to,

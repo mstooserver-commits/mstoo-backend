@@ -24,7 +24,6 @@ class CustomerManagementTest extends TestCase
         }
 
         $this->actingAs($admin)->get('/admin/customer/list')->assertOk();
-        $this->actingAs($admin)->get('/admin/customer/list?search=')->assertOk();
         $this->actingAs($admin)->get('/admin/customer/create')->assertOk();
         $this->actingAs($admin)->get('/admin/customer/list?status=active&sort=latest&limit=10')->assertOk();
         $this->actingAs($admin)->get('/admin/customer/download')->assertOk();
@@ -49,6 +48,18 @@ class CustomerManagementTest extends TestCase
         } finally {
             $this->cleanupCustomer($customer);
         }
+    }
+
+    public function test_customer_list_accepts_a_null_search_value(): void
+    {
+        $admin = User::query()->where('user_type', 'super-admin')->where('is_active', 1)->first();
+        if (!$admin) {
+            $this->markTestSkipped('No super-admin is available in this database.');
+        }
+
+        $this->actingAs($admin)
+            ->get('/admin/customer/list?search=')
+            ->assertOk();
     }
 
     public function test_restricted_employee_can_view_but_cannot_edit_delete_or_adjust_wallet()
